@@ -1,0 +1,14 @@
+{
+  "name": "@capybara/core",
+  "version": "0.1.0",
+  "description": "Capybara operator core (router, actions, ledger)",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./*": "./src/*"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "ethers": "^6.17.0"
+  }
+}
