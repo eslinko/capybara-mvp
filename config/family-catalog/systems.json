@@ -1,0 +1,152 @@
+{
+  "version": 1,
+  "systems": [
+    {
+      "id": "cidead",
+      "levels": { "tracks": ["primaria", "secundaria"], "range": [1, 6] },
+      "periods": ["T1", "T2", "T3"],
+      "metricRule": {
+        "id": "score_0_10",
+        "kind": "number",
+        "min": 0,
+        "max": 10,
+        "direction": "higher_better"
+      },
+      "payoutRule": {
+        "id": "cidead_score_to_capy",
+        "mode": "auto",
+        "algorithm": "score_digit_scale"
+      }
+    },
+    {
+      "id": "ru",
+      "metricRule": {
+        "id": "percent",
+        "kind": "number",
+        "min": 0,
+        "max": 100,
+        "direction": "higher_better"
+      },
+      "payoutRule": {
+        "id": "ru_custom",
+        "mode": "custom_only"
+      },
+      "activityTypeOverrides": {
+        "control": {
+          "subtypeOverrides": {
+            "dictant": {
+              "metricRule": {
+                "id": "error_count",
+                "kind": "number",
+                "min": 0,
+                "direction": "lower_better"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "activityTypes": [
+    {
+      "id": "control",
+      "subtypes": ["dictant", "samostoyatelnaya", "controlnaya", "entrega"]
+    },
+    {
+      "id": "exam",
+      "subtypes": []
+    }
+  ],
+  "metricRules": [
+    {
+      "id": "score_0_10",
+      "kind": "number",
+      "min": 0,
+      "max": 10,
+      "direction": "higher_better"
+    },
+    {
+      "id": "error_count",
+      "kind": "number",
+      "min": 0,
+      "direction": "lower_better"
+    },
+    {
+      "id": "percent",
+      "kind": "number",
+      "min": 0,
+      "max": 100,
+      "direction": "higher_better"
+    }
+  ],
+  "payoutRules": [
+    {
+      "id": "cidead_score_to_capy",
+      "mode": "auto",
+      "algorithm": "score_digit_scale"
+    },
+    {
+      "id": "ru_custom",
+      "mode": "custom_only"
+    }
+  ],
+  "templates": [
+    {
+      "id": "entrega-1.1",
+      "system": "cidead",
+      "level": "1",
+      "period": "T1",
+      "subject": "matematicas",
+      "activityType": "control",
+      "subtype": "entrega",
+      "metricRule": {
+        "id": "score_0_10",
+        "kind": "number",
+        "min": 0,
+        "max": 10,
+        "direction": "higher_better"
+      },
+      "payoutRule": {
+        "id": "cidead_score_to_capy",
+        "mode": "auto",
+        "algorithm": "score_digit_scale"
+      }
+    },
+    {
+      "id": "dictant-ru-1",
+      "system": "ru",
+      "subject": "russkiy",
+      "activityType": "control",
+      "subtype": "dictant",
+      "metricRule": {
+        "id": "error_count",
+        "kind": "number",
+        "min": 0,
+        "direction": "lower_better"
+      },
+      "payoutRule": {
+        "id": "ru_custom",
+        "mode": "custom_only"
+      }
+    },
+    {
+      "id": "sr-1",
+      "system": "ru",
+      "level": "grade-8",
+      "subject": "algebra",
+      "activityType": "control",
+      "subtype": "samostoyatelnaya",
+      "metricRule": {
+        "id": "percent",
+        "kind": "number",
+        "min": 0,
+        "max": 100,
+        "direction": "higher_better"
+      },
+      "payoutRule": {
+        "id": "ru_custom",
+        "mode": "custom_only"
+      }
+    }
+  ]
+}
