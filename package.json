@@ -1,0 +1,19 @@
+{
+  "name": "capybara",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Capybara $CAPY operator CLI + future server/web monorepo",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "mocha 'tests/unit/**/*.test.js' --config tests/.mocharc.json",
+    "cli": "node cli/capybara.js"
+  },
+  "devDependencies": {
+    "chai": "^4.5.0",
+    "chai-as-promised": "^8.0.2",
+    "mocha": "^10.8.2",
+    "sinon": "^17.0.1"
+  }
+}
