@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>$CAPY Token Mint</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #4A7C3A 0%, #8B6F47 50%, #2D5016 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Природные элементы в фоне */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            right: -10%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(212, 175, 55, 0.1) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            bottom: -30%;
+            left: -10%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(45, 80, 22, 0.15) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            background: linear-gradient(135deg, #FFF8F0 0%, #FFFBF5 100%);
+            backdrop-filter: blur(10px);
+            border-radius: 25px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25), 0 0 60px rgba(212, 175, 55, 0.15);
+            padding: 45px;
+            max-width: 520px;
+            width: 100%;
+            position: relative;
+            z-index: 1;
+            border: 2px solid rgba(212, 175, 55, 0.2);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        .capybara-emoji {
+            font-size: 60px;
+            margin-bottom: 15px;
+            display: inline-block;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        h1 {
+            background: linear-gradient(135deg, #8B6F47 0%, #2D5016 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 32px;
+            margin-bottom: 8px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            color: #4A7C3A;
+            font-size: 15px;
+            font-weight: 500;
+            position: relative;
+        }
+
+        .subtitle::before {
+            content: '🌿 ';
+            margin-right: 5px;
+        }
+
+        .subtitle::after {
+            content: ' 💚';
+            margin-left: 5px;
+        }
+
+        .form-group {
+            margin-bottom: 22px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 9px;
+            color: #2D5016;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 13px 16px;
+            border: 2px solid #D4AF37;
+            border-radius: 12px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            font-family: 'Courier New', monospace;
+            background: #FFFBF5;
+            color: #2D5016;
+        }
+
+        input::placeholder, textarea::placeholder {
+            color: #A0826D;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #FFD700;
+            background: #FFFEF9;
+            box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.15), inset 0 0 10px rgba(212, 175, 55, 0.05);
+            transform: translateY(-2px);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 85px;
+        }
+
+        .input-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 32px;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px 22px;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.2);
+            transition: left 0.3s ease;
+            z-index: -1;
+        }
+
+        button:hover::before {
+            left: 100%;
+        }
+
+        .mint-btn {
+            background: linear-gradient(135deg, #D4AF37 0%, #FFD700 100%);
+            color: #2D5016;
+            box-shadow: 0 8px 20px rgba(212, 175, 55, 0.3);
+        }
+
+        .mint-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px rgba(212, 175, 55, 0.4);
+        }
+
+        .mint-btn:active {
+            transform: translateY(-1px);
+        }
+
+        .mint-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .clear-btn {
+            background: #4A7C3A;
+            color: #FFF8F0;
+            box-shadow: 0 8px 20px rgba(74, 124, 58, 0.2);
+        }
+
+        .clear-btn:hover {
+            background: #2D5016;
+            box-shadow: 0 12px 30px rgba(74, 124, 58, 0.3);
+        }
+
+        .status {
+            margin-top: 22px;
+            padding: 16px;
+            border-radius: 12px;
+            display: none;
+            font-size: 14px;
+            border-left: 4px solid transparent;
+            line-height: 1.6;
+        }
+
+        .status.success {
+            background: rgba(74, 124, 58, 0.1);
+            color: #2D5016;
+            border-left-color: #4A7C3A;
+        }
+
+        .status.error {
+            background: rgba(220, 53, 69, 0.1);
+            color: #721c24;
+            border-left-color: #DC3545;
+        }
+
+        .status.info {
+            background: rgba(212, 175, 55, 0.1);
+            color: #5c4033;
+            border-left-color: #D4AF37;
+        }
+
+        .status.warning {
+            background: rgba(255, 193, 7, 0.1);
+            color: #856404;
+            border-left-color: #FFC107;
+        }
+
+        .status.info,
+        .status.error,
+        .status.success,
+        .status.warning {
+            display: block;
+        }
+
+        .mint-debug {
+            margin-top: 18px;
+            width: 100%;
+        }
+
+        .mint-debug-header {
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #1f7a32;
+        }
+
+        #mintDebugTerminal,
+        .mint-debug-terminal {
+            background: #0a0a0a;
+            color: #00ff41;
+            font-family: ui-monospace, "Courier New", monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            padding: 12px;
+            max-height: 220px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            border: 1px solid #1a3d1a;
+            margin: 0;
+        }
+
+        .loader {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid rgba(45, 80, 22, 0.2);
+            border-radius: 50%;
+            border-top-color: #4A7C3A;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .tx-link {
+            color: #4A7C3A;
+            text-decoration: none;
+            word-break: break-all;
+            font-weight: 600;
+        }
+
+        .tx-link:hover {
+            text-decoration: underline;
+            color: #D4AF37;
+        }
+
+        .info-box {
+            background: linear-gradient(135deg, rgba(74, 124, 58, 0.08) 0%, rgba(212, 175, 55, 0.08) 100%);
+            border-left: 4px solid #4A7C3A;
+            padding: 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            color: #5c4033;
+            margin-bottom: 24px;
+            line-height: 1.7;
+        }
+
+        .info-box strong {
+            color: #2D5016;
+        }
+
+        .info-box code {
+            background: rgba(212, 175, 55, 0.15);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #5c4033;
+        }
+
+        .decimals-note {
+            font-size: 12px;
+            color: #8B6F47;
+            margin-top: 5px;
+            font-weight: 500;
+        }
+
+        .leaf {
+            display: inline-block;
+            margin: 0 3px;
+        }
+
+        code {
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Адаптивность */
+        @media (max-width: 480px) {
+            .container {
+                padding: 30px 20px;
+                border-radius: 20px;
+            }
+
+            h1 {
+                font-size: 26px;
+            }
+
+            .input-row {
+                grid-template-columns: 1fr;
+            }
+
+            button {
+                padding: 13px 18px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="capybara-emoji">🧮</div>
+            <h1>$CAPY Token Mint</h1>
+            <p class="subtitle">Умный выпуск для умного капибары</p>
+        </div>
+
+        <div class="info-box">
+            <strong>🌿 Polygon Mainnet</strong><br>
+            <span class="leaf">🟢</span>
+            Contract: <code id="contractAddress"></code>
+        </div>
+
+        <form id="mintForm">
+            <div class="form-group">
+                <label for="privateKey"><span class="leaf">🔐</span> Приватный ключ оунера</label>
+                <textarea id="privateKey" placeholder="0x... (локально, не отправляется)" required></textarea>
+                <div class="decimals-note">✓ Вводится только в браузер, полная приватность</div>
+            </div>
+
+            <div class="form-group">
+                <label for="toAddress"><span class="leaf">👤</span> Адрес получателя</label>
+                <input type="text" id="toAddress" placeholder="0x..." required>
+            </div>
+
+            <div class="input-row">
+                <div class="form-group">
+                    <label for="amount"><span class="leaf">💰</span> Количество $CAPY</label>
+                    <input type="number" id="amount" placeholder="1000" required>
+                    <div class="decimals-note">× 10<sup>8</sup></div>
+                </div>
+                <div class="form-group">
+                    <label for="gasPrice"><span class="leaf">⛽</span> Gas (GWEI)</label>
+                    <input type="number" id="gasPrice" placeholder="50" value="50" step="0.1">
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button type="submit" class="mint-btn" id="mintBtn">
+                    🚀 Mint!
+                </button>
+                <button type="reset" class="clear-btn">
+                    🔄 Очистить
+                </button>
+            </div>
+        </form>
+
+        <div class="status" id="status"></div>
+        <section class="mint-debug" aria-label="Blockchain debug terminal">
+            <div class="mint-debug-header">DEBUG // POLYGON</div>
+            <pre id="mintDebugTerminal" class="mint-debug-terminal" role="log" aria-live="polite"></pre>
+        </section>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.10.0/dist/ethers.umd.min.js"></script>
+    <script src="capybara-mint-config.js"></script>
+    <script src="capybara-mint.js"></script>
+</body>
+</html>
