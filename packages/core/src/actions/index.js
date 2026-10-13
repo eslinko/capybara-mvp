@@ -4,6 +4,12 @@ const SweepToParentAction = require('./SweepToParentAction');
 const DailyPaymentsAction = require('./DailyPaymentsAction');
 const ChargeToPoolAction = require('./ChargeToPoolAction');
 const ActivityPayoutAction = require('./ActivityPayoutAction');
+const {
+  loadCapybaraTokenArtifact,
+  getDeployerWallet,
+  assertGflOrMockSimulate,
+  confirmGflReality,
+} = require('../contract-ops');
 
 const GFL_REALITY_BANNER =
   '⚠️ БОЕВОЙ РЕЖИМ: CAPY_MODE=gfl_reality — реальные переводы $CAPY включены!';
@@ -137,4 +143,8 @@ module.exports = {
   ChargeToPoolAction,
   ActivityPayoutAction,
   GFL_REALITY_BANNER,
+  loadCapybaraTokenArtifact,
+  getDeployerWallet,
+  assertGflOrMockSimulate,
+  confirmGflReality,
 };
