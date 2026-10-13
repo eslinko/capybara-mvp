@@ -79,12 +79,53 @@ function resolveCapyMode(env) {
 }
 
 /**
+ * @param {NodeJS.ProcessEnv} env
+ * @returns {number|null}
+ */
+function resolveConfiguredAction(env) {
+  const raw = env?.CAPYBARA_ACTION;
+  if (raw === undefined || raw === null || String(raw).trim() === '') {
+    return null;
+  }
+  const action = Number.parseInt(String(raw).trim(), 10);
+  return Number.isNaN(action) ? null : action;
+}
+
+/**
+ * Action 51 (deploy) has no token yet. Actions 0–4 and 52 still require CAPY_TOKEN_ADDRESS.
+ * Deployer keys are required only for 51 and 52.
+ * @param {NodeJS.ProcessEnv} env
+ * @returns {string[]}
+ */
+function keysRequiredForEnv(env) {
+  const action = resolveConfiguredAction(env);
+  const keys = REQUIRED_KEYS.filter((key) => !(key === 'CAPY_TOKEN_ADDRESS' && action === 51));
+  if (action === 51 || action === 52) {
+    keys.push('DEPLOYER_ADDRESS', 'DEPLOYER_PRIVATE_KEY');
+  }
+  return keys;
+}
+
+/**
+ * @param {NodeJS.ProcessEnv} env
  * @param {string} key
+ * @returns {string}
+ */
+function readEnvString(env, key) {
+  const raw = env?.[key];
+  if (raw === undefined || raw === null) {
+    return '';
+  }
+  return String(raw).trim();
+}
+
+/**
+ * @param {NodeJS.ProcessEnv} env
  * @returns {string[]}
  */
 function validateCapybaraEnv(env) {
   const errors = [];
-  for (const key of REQUIRED_KEYS) {
+  for (const key of keysRequiredForEnv(env)) {
     const value = env[key];
     if (value === undefined || value === null || String(value).trim() === '') {
       errors.push(`${key} is required`);
@@ -195,6 +236,22 @@ function parseDailyRateHuman(env, key) {
 
 /**
  * @param {NodeJS.ProcessEnv} env
+ * @returns {{ address: string, privateKey: string }|null}
+ */
+function buildDeployer(env) {
+  const address = readEnvString(env, 'DEPLOYER_ADDRESS');
+  const privateKeyRaw = readEnvString(env, 'DEPLOYER_PRIVATE_KEY');
+  if (!address && !privateKeyRaw) {
+    return null;
+  }
+  return {
+    address,
+    privateKey: privateKeyRaw ? normalizePrivateKey(privateKeyRaw) : '',
+  };
+}
+
+/**
+ * @param {NodeJS.ProcessEnv} env
  * @returns {object}
  */
 function buildConfigFromEnv(env) {
@@ -208,8 +265,9 @@ function buildConfigFromEnv(env) {
     },
     chainId: Number(env.CAPY_CHAIN_ID),
     token: {
-      address: String(env.CAPY_TOKEN_ADDRESS).trim(),
+      address: readEnvString(env, 'CAPY_TOKEN_ADDRESS'),
     },
+    deployer: buildDeployer(env),
     parent: {
       address: String(env.PARENT_ADDRESS).trim(),
       privateKey: normalizePrivateKey(env.PARENT_PRIVATE_KEY),
@@ -262,6 +320,8 @@ module.exports = {
   validateCapybaraEnv,
   buildConfigFromEnv,
   loadAndValidateConfig,
+  resolveConfiguredAction,
+  keysRequiredForEnv,
   normalizePrivateKey,
   normalizeRpcUrl,
   validateRpcUrlShape,

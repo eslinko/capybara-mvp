@@ -24,6 +24,8 @@ class CapybaraActionsManager {
       [2, () => this.action2DailyPayments()],
       [3, () => this.action3ChargeToPool()],
       [4, () => this.action4ActivityPayout()],
+      [51, () => this.action51DeployStub()],
+      [52, () => this.action52MintStub()],
     ]);
   }
 
@@ -89,10 +91,29 @@ class CapybaraActionsManager {
   }
 
   /**
+   * Scaffold only. Real deploy is TKN-03.
+   * @returns {Promise<{ ok: true, action: 51, stub: true }>}
+   */
+  async action51DeployStub() {
+    return { ok: true, action: 51, stub: true };
+  }
+
+  /**
+   * Scaffold only. Real mint is TKN-04.
+   * @returns {Promise<{ ok: true, action: 52, stub: true }>}
+   */
+  async action52MintStub() {
+    return { ok: true, action: 52, stub: true };
+  }
+
+  /**
    * @param {number} actionNumber
    * @returns {Promise<object>}
    */
   async executeAction(actionNumber) {
+    if (Number(actionNumber) === 5) {
+      throw new Error('Unknown Capybara action: 5. use 51 or 52');
+    }
     const action = this.actionMap.get(actionNumber);
     if (!action) {
       const available = this.getAvailableActions();

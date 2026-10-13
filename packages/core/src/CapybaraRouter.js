@@ -34,13 +34,19 @@ class CapybaraRouter {
     this.rpcManager = rpcManager;
 
     this.walletRegistry = new WalletRegistry(this.config, this.logger);
-    this.capyToken = new CapyToken(
-      this.provider,
-      this.config.token.address,
-      this.walletRegistry,
-      this.logger,
-      { rpcManager: this.rpcManager, chainId: this.config.chainId, mode: this.config.mode }
-    );
+    const tokenAddress = String(this.config.token?.address ?? '').trim();
+    if (tokenAddress) {
+      this.capyToken = new CapyToken(
+        this.provider,
+        tokenAddress,
+        this.walletRegistry,
+        this.logger,
+        { rpcManager: this.rpcManager, chainId: this.config.chainId, mode: this.config.mode }
+      );
+    } else {
+      this.capyToken = null;
+      this.logger.info('[CAPY] CapyToken skipped: CAPY_TOKEN_ADDRESS empty (action 51)');
+    }
 
     this.actionsManager = new CapybaraActionsManager(this);
     this.initialized = true;

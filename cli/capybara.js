@@ -26,6 +26,12 @@ async function main() {
     process.exit(1);
   }
 
+  if (action === 5) {
+    logger.error('Unknown Capybara action: 5. use 51 or 52');
+    process.exit(1);
+  }
+
+  // Actions 51 and 52 do not use CAPYBARA_WALLET (unlike 1, 2, and 4).
   if (action === 1 || action === 2 || action === 4) {
     const wallet = process.env.CAPYBARA_WALLET;
     if (wallet === undefined || wallet === null || String(wallet).trim() === '') {
