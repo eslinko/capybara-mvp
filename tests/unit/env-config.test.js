@@ -151,6 +151,48 @@ describe('Capybara config', () => {
     ).to.throw(/CAPY_CHAIN_ID must be a positive integer/i);
   });
 
+  it('action 51 starts without CAPY_TOKEN_ADDRESS when deployer and RPC are set', () => {
+    const { CAPY_TOKEN_ADDRESS: _token, ...withoutToken } = fixtureEnv;
+    const env = {
+      ...withoutToken,
+      CAPYBARA_ACTION: '51',
+      DEPLOYER_ADDRESS: '0x5555555555555555555555555555555555555555',
+      DEPLOYER_PRIVATE_KEY: 'd'.repeat(64),
+    };
+    const errors = validateCapybaraEnv(env);
+    expect(errors.some((error) => error.includes('CAPY_TOKEN_ADDRESS'))).to.equal(false);
+    const config = loadAndValidateConfig(env, { exitOnError: false });
+    expect(config.token.address).to.equal('');
+    expect(config.deployer.privateKey).to.equal(`0x${'d'.repeat(64)}`);
+  });
+
+  it('action 52 and actions 0–4 still require CAPY_TOKEN_ADDRESS', () => {
+    const { CAPY_TOKEN_ADDRESS: _token, ...withoutToken } = fixtureEnv;
+    const deployer = {
+      DEPLOYER_ADDRESS: '0x5555555555555555555555555555555555555555',
+      DEPLOYER_PRIVATE_KEY: '0x' + 'd'.repeat(64),
+    };
+    const missingFor52 = validateCapybaraEnv({ ...withoutToken, ...deployer, CAPYBARA_ACTION: '52' });
+    expect(missingFor52.some((error) => error.includes('CAPY_TOKEN_ADDRESS'))).to.equal(true);
+    const missingFor0 = validateCapybaraEnv({ ...withoutToken, CAPYBARA_ACTION: '0' });
+    expect(missingFor0.some((error) => error.includes('CAPY_TOKEN_ADDRESS'))).to.equal(true);
+  });
+
+  it('actions 51 and 52 require DEPLOYER_* and normalize the deployer key', () => {
+    const missing = validateCapybaraEnv({ ...fixtureEnv, CAPYBARA_ACTION: '51' });
+    expect(missing.some((error) => error.includes('DEPLOYER_ADDRESS is required'))).to.equal(true);
+    expect(missing.some((error) => error.includes('DEPLOYER_PRIVATE_KEY is required'))).to.equal(true);
+    const config = buildConfigFromEnv({
+      ...fixtureEnv,
+      CAPYBARA_ACTION: '52',
+      DEPLOYER_ADDRESS: '0x5555555555555555555555555555555555555555',
+      DEPLOYER_PRIVATE_KEY: '0x' + 'e'.repeat(64),
+    });
+    expect(config.deployer.address).to.match(/^0x5555/);
+    expect(config.deployer.privateKey).to.equal(`0x${'e'.repeat(64)}`);
+    expect(buildConfigFromEnv(fixtureEnv).deployer).to.equal(null);
+  });
+
   it('loads fixture test.env via dotenv path', () => {
     const envPath = path.join(__dirname, '../fixtures/capybara/test.env');
     require('dotenv').config({ path: envPath, override: true });

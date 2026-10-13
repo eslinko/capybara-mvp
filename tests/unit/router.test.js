@@ -60,7 +60,19 @@ describe('Capybara router and actions', () => {
 
   it('CapybaraActionsManager registers action 1', async () => {
     const manager = new CapybaraActionsManager(routerStub);
-    expect(manager.getAvailableActions()).to.deep.equal([0, 1, 2, 3, 4]);
+    expect(manager.getAvailableActions()).to.deep.equal([0, 1, 2, 3, 4, 51, 52]);
+  });
+
+  it('executeAction(5) tells the operator to use 51 or 52', async () => {
+    const manager = new CapybaraActionsManager(routerStub);
+    try {
+      await manager.executeAction(5);
+      expect.fail('should throw');
+    } catch (error) {
+      expect(error.message).to.include('51');
+      expect(error.message).to.include('52');
+      expect(error.message).to.match(/use 51 or 52/);
+    }
   });
 
   it('CapybaraRouter.route uses actions manager when initialized', async () => {
