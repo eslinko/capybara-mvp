@@ -52,10 +52,19 @@
 | `charge` | Действие 3 (списание в пул) | после каждого успешного списания (для `all` — по строке на ребёнка) |
 | `activity_validated` | Действие 4 (зачёт активности) | всегда при успешном commit (метрики) |
 | `payout` | Действие 4 | если amount>0 и transfer ok; тот же `submission_id`, что у `activity_validated` |
+| `token_deployed` | Действие 51 (деплой контракта) | mock (`wouldDeploy`) и `gfl_reality` (адрес + txHash) |
+| `token_minted` | Действие 52 (доэмиссия) | mock и `gfl_reality` после успешного mint |
 
 > ⚠️ Направление денег зависит от типа: `payment` / `payout` — родитель→ребёнок (`from`=родитель, `to`=ребёнок);
 > `sweep`/`charge` — ребёнок→родитель (`from`=ребёнок, `to`=родитель).
 > Пара `activity_validated`+`payout` пишется одним atomic append (ACT-02); fail transfer → rollback (0 строк).
+> `token_deployed` / `token_minted` пишутся в `<deployer>.ndjson` (mock → `logs/capybara/mock/`). Отмена TTY строку не создаёт.
+
+### `token_deployed` — деплой (действие 51)
+Поля: `type`, `ts`, `mode`, `deployer`, `address` или `wouldDeploy`, `txHash` (может быть null), `chainId`, `mock`.
+
+### `token_minted` — доэмиссия (действие 52)
+Поля: `type`, `ts`, `mode`, `token`, `to`, `amountHuman`, `amountWei`, `txHash` (может быть null), `mock`.
 
 Пропуски (баланс 0, долг 0, отмена «нет», ошибка до перевода) записи о переводе **не создают**
 (для действия 2 строки `day` при этом всё равно пишутся).
@@ -144,6 +153,8 @@ grep '"batch_id":"3f2a' capybara/logs/capybara/*.ndjson
 | 2 daily | [DailyPaymentsAction → appendDailyPaymentsLog](../../packages/core/src/actions/DailyPaymentsAction.js#L218) (+ [:270](../../packages/core/src/actions/DailyPaymentsAction.js#L270), [:317](../../packages/core/src/actions/DailyPaymentsAction.js#L317)) | `day` + `payment` |
 | 3 charge | [ChargeToPoolAction._writeChargeJournal → appendTypedLedgerEntry](../../packages/core/src/actions/ChargeToPoolAction.js#L404) (single [:175](../../packages/core/src/actions/ChargeToPoolAction.js#L175), all [:297](../../packages/core/src/actions/ChargeToPoolAction.js#L297)) | `charge` |
 | 4 activity | [ActivityPayoutAction → stageAndCommitActivityJournal](../../packages/core/src/actions/ActivityPayoutAction.js) → [appendTypedLedgerEntries](../../packages/core/src/daily-payments/ndjsonLogWriter.js) | `activity_validated` (+ `payout` если amount>0) |
+| 51 deploy | [DeployCapybaraTokenAction._writeJournal → appendTypedLedgerEntry](../../packages/core/src/actions/DeployCapybaraTokenAction.js) | `token_deployed` |
+| 52 mint | [MintCapybaraTokenAction._writeJournal → appendTypedLedgerEntry](../../packages/core/src/actions/MintCapybaraTokenAction.js) | `token_minted` |
 
 ## 2.3 Сериализация и целостность записи
 
