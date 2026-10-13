@@ -5,6 +5,7 @@ const DailyPaymentsAction = require('./DailyPaymentsAction');
 const ChargeToPoolAction = require('./ChargeToPoolAction');
 const ActivityPayoutAction = require('./ActivityPayoutAction');
 const DeployCapybaraTokenAction = require('./DeployCapybaraTokenAction');
+const MintCapybaraTokenAction = require('./MintCapybaraTokenAction');
 const {
   loadCapybaraTokenArtifact,
   getDeployerWallet,
@@ -32,7 +33,7 @@ class CapybaraActionsManager {
       [3, () => this.action3ChargeToPool()],
       [4, () => this.action4ActivityPayout()],
       [51, () => this.action51Deploy()],
-      [52, () => this.action52MintStub()],
+      [52, () => this.action52Mint()],
     ]);
   }
 
@@ -108,11 +109,13 @@ class CapybaraActionsManager {
   }
 
   /**
-   * Scaffold only. Real mint is TKN-04.
-   * @returns {Promise<{ ok: true, action: 52, stub: true }>}
+   * Additional mint (action 52). Mock does not broadcast.
+   * @returns {Promise<object>}
    */
-  async action52MintStub() {
-    return { ok: true, action: 52, stub: true };
+  async action52Mint() {
+    this._warnGflRealityBeforeWrite();
+    const action = new MintCapybaraTokenAction(this.router);
+    return action.execute();
   }
 
   /**
@@ -146,6 +149,7 @@ module.exports = {
   ChargeToPoolAction,
   ActivityPayoutAction,
   DeployCapybaraTokenAction,
+  MintCapybaraTokenAction,
   GFL_REALITY_BANNER,
   loadCapybaraTokenArtifact,
   getDeployerWallet,
