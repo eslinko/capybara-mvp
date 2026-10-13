@@ -4,6 +4,7 @@ const SweepToParentAction = require('./SweepToParentAction');
 const DailyPaymentsAction = require('./DailyPaymentsAction');
 const ChargeToPoolAction = require('./ChargeToPoolAction');
 const ActivityPayoutAction = require('./ActivityPayoutAction');
+const DeployCapybaraTokenAction = require('./DeployCapybaraTokenAction');
 const {
   loadCapybaraTokenArtifact,
   getDeployerWallet,
@@ -30,7 +31,7 @@ class CapybaraActionsManager {
       [2, () => this.action2DailyPayments()],
       [3, () => this.action3ChargeToPool()],
       [4, () => this.action4ActivityPayout()],
-      [51, () => this.action51DeployStub()],
+      [51, () => this.action51Deploy()],
       [52, () => this.action52MintStub()],
     ]);
   }
@@ -97,11 +98,13 @@ class CapybaraActionsManager {
   }
 
   /**
-   * Scaffold only. Real deploy is TKN-03.
-   * @returns {Promise<{ ok: true, action: 51, stub: true }>}
+   * Deploy CapybaraToken (action 51). Mock does not broadcast.
+   * @returns {Promise<object>}
    */
-  async action51DeployStub() {
-    return { ok: true, action: 51, stub: true };
+  async action51Deploy() {
+    this._warnGflRealityBeforeWrite();
+    const action = new DeployCapybaraTokenAction(this.router);
+    return action.execute();
   }
 
   /**
@@ -142,6 +145,7 @@ module.exports = {
   DailyPaymentsAction,
   ChargeToPoolAction,
   ActivityPayoutAction,
+  DeployCapybaraTokenAction,
   GFL_REALITY_BANNER,
   loadCapybaraTokenArtifact,
   getDeployerWallet,
