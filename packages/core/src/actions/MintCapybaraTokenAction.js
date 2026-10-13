@@ -2,6 +2,7 @@
 
 const { ethers } = require('ethers');
 const { parseAmountHuman } = require('../charge-pool/splitAllocation');
+const { appendTypedLedgerEntry } = require('../daily-payments/ndjsonLogWriter');
 const {
   loadCapybaraTokenArtifact,
   getDeployerWallet,
@@ -26,6 +27,8 @@ class MintCapybaraTokenAction {
    *   confirmFn?: (question: string) => Promise<string>,
    *   amountHuman?: string,
    *   toAddress?: string,
+   *   appendJournal?: typeof appendTypedLedgerEntry,
+   *   logDir?: string,
    * }} [options]
    */
   constructor(router, options = {}) {
@@ -37,6 +40,8 @@ class MintCapybaraTokenAction {
     this.Contract = options.Contract ?? ethers.Contract;
     this.isTty = options.isTty;
     this.confirmFn = options.confirmFn;
+    this.appendJournal = options.appendJournal ?? appendTypedLedgerEntry;
+    this.logDir = options.logDir;
     this._amountOverride = Object.prototype.hasOwnProperty.call(options, 'amountHuman')
       ? options.amountHuman
       : undefined;
@@ -61,16 +66,34 @@ class MintCapybaraTokenAction {
   _journalShape(fields) {
     return {
       type: 'token_minted',
-      tokenAddress: fields.tokenAddress,
+      ts: new Date().toISOString(),
+      mode: fields.mode,
+      token: fields.tokenAddress,
       to: fields.to,
       amountHuman: fields.amountHuman,
       amountWei: fields.amountWei.toString(),
-      txHash: fields.txHash,
-      deployer: fields.deployer,
-      mode: fields.mode,
+      txHash: fields.txHash ?? null,
       mock: fields.mock,
-      timestamp: new Date().toISOString(),
+      deployer: fields.deployer,
     };
+  }
+
+  /**
+   * @param {object} entry
+   * @param {string} deployer
+   * @param {string} mode
+   * @returns {Promise<void>}
+   */
+  async _writeJournal(entry, deployer, mode) {
+    const params = {
+      wallet: deployer,
+      entry,
+      mode,
+    };
+    if (this.logDir) {
+      params.logDir = this.logDir;
+    }
+    await this.appendJournal(params);
   }
 
   /**
@@ -167,6 +190,17 @@ class MintCapybaraTokenAction {
     if (mode === 'mock') {
       const line = `[MOCK] would mint ${amountHuman} to ${to}`;
       this.logger?.info?.(line);
+      const journal = this._journalShape({
+        mode,
+        tokenAddress,
+        to,
+        amountHuman,
+        amountWei,
+        txHash: null,
+        deployer: wallet.address,
+        mock: true,
+      });
+      await this._writeJournal(journal, wallet.address, mode);
       return {
         ok: true,
         action: 52,
@@ -177,16 +211,7 @@ class MintCapybaraTokenAction {
         to,
         tokenAddress,
         deployer: wallet.address,
-        journal: this._journalShape({
-          mode,
-          tokenAddress,
-          to,
-          amountHuman,
-          amountWei,
-          txHash: null,
-          deployer: wallet.address,
-          mock: true,
-        }),
+        journal,
       };
     }
 
@@ -196,6 +221,17 @@ class MintCapybaraTokenAction {
     const receipt = typeof tx?.wait === 'function' ? await tx.wait() : null;
     const txHash = receipt?.hash ?? tx?.hash ?? null;
     this.logger?.info?.(`mint tx ${txHash}`);
+    const journal = this._journalShape({
+      mode,
+      tokenAddress,
+      to,
+      amountHuman,
+      amountWei,
+      txHash,
+      deployer: wallet.address,
+      mock: false,
+    });
+    await this._writeJournal(journal, wallet.address, mode);
 
     return {
       ok: true,
@@ -207,16 +243,7 @@ class MintCapybaraTokenAction {
       to,
       tokenAddress,
       deployer: wallet.address,
-      journal: this._journalShape({
-        mode,
-        tokenAddress,
-        to,
-        amountHuman,
-        amountWei,
-        txHash,
-        deployer: wallet.address,
-        mock: false,
-      }),
+      journal,
     };
   }
 }

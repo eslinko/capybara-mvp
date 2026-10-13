@@ -1,6 +1,7 @@
 'use strict';
 
 const { ethers } = require('ethers');
+const { appendTypedLedgerEntry } = require('../daily-payments/ndjsonLogWriter');
 const {
   loadCapybaraTokenArtifact,
   getDeployerWallet,
@@ -31,6 +32,8 @@ class DeployCapybaraTokenAction {
    *   Factory?: typeof ethers.ContractFactory,
    *   isTty?: boolean,
    *   confirmFn?: (question: string) => Promise<string>,
+   *   appendJournal?: typeof appendTypedLedgerEntry,
+   *   logDir?: string,
    * }} [options]
    */
   constructor(router, options = {}) {
@@ -42,22 +45,44 @@ class DeployCapybaraTokenAction {
     this.Factory = options.Factory ?? ethers.ContractFactory;
     this.isTty = options.isTty;
     this.confirmFn = options.confirmFn;
+    this.appendJournal = options.appendJournal ?? appendTypedLedgerEntry;
+    this.logDir = options.logDir;
   }
 
   /**
-   * @param {{ mode: string, address: string|null, txHash: string|null, mock: boolean }} fields
+   * @param {{ mode: string, address: string|null, txHash: string|null, deployer: string, mock: boolean }} fields
    * @returns {object}
    */
   _journalShape(fields) {
     return {
       type: 'token_deployed',
-      address: fields.address,
-      txHash: fields.txHash,
-      deployer: fields.deployer,
+      ts: new Date().toISOString(),
       mode: fields.mode,
+      deployer: fields.deployer,
+      address: fields.address,
+      wouldDeploy: fields.mock,
+      txHash: fields.txHash ?? null,
+      chainId: this.router?.config?.chainId ?? null,
       mock: fields.mock,
-      timestamp: new Date().toISOString(),
     };
+  }
+
+  /**
+   * @param {object} entry
+   * @param {string} deployer
+   * @param {string} mode
+   * @returns {Promise<void>}
+   */
+  async _writeJournal(entry, deployer, mode) {
+    const params = {
+      wallet: deployer,
+      entry,
+      mode,
+    };
+    if (this.logDir) {
+      params.logDir = this.logDir;
+    }
+    await this.appendJournal(params);
   }
 
   /**
@@ -81,19 +106,21 @@ class DeployCapybaraTokenAction {
     if (mode === 'mock') {
       const line = `[MOCK] would deploy CapybaraToken from ${wallet.address}`;
       this.logger?.info?.(line);
+      const journal = this._journalShape({
+        mode,
+        address: null,
+        txHash: null,
+        deployer: wallet.address,
+        mock: true,
+      });
+      await this._writeJournal(journal, wallet.address, mode);
       return {
         ok: true,
         action: 51,
         mock: true,
         wouldDeploy: true,
         deployer: wallet.address,
-        journal: this._journalShape({
-          mode,
-          address: null,
-          txHash: null,
-          deployer: wallet.address,
-          mock: true,
-        }),
+        journal,
       };
     }
 
@@ -117,6 +144,14 @@ class DeployCapybaraTokenAction {
       decimals = await contract.decimals();
     }
 
+    const journal = this._journalShape({
+      mode,
+      address,
+      txHash,
+      deployer: wallet.address,
+      mock: false,
+    });
+    await this._writeJournal(journal, wallet.address, mode);
     return {
       ok: true,
       action: 51,
@@ -126,13 +161,7 @@ class DeployCapybaraTokenAction {
       symbol,
       decimals,
       instruction,
-      journal: this._journalShape({
-        mode,
-        address,
-        txHash,
-        deployer: wallet.address,
-        mock: false,
-      }),
+      journal,
     };
   }
 }
