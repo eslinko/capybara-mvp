@@ -182,6 +182,14 @@ function validateCapybaraEnv(env) {
     }
   }
 
+  const networkScanner = resolveNetworkScanner(env);
+  if (networkScanner) {
+    const scannerError = validateNetworkScannerShape(networkScanner);
+    if (scannerError) {
+      errors.push(`${networkScannerSourceKey(env)} ${scannerError}`);
+    }
+  }
+
   return errors;
 }
 
@@ -252,6 +260,62 @@ function buildDeployer(env) {
 
 /**
  * @param {NodeJS.ProcessEnv} env
+ * @param {string} key
+ * @returns {string}
+ */
+function readTrimmedEnv(env, key) {
+  const raw = env?.[key];
+  if (raw === undefined || raw === null) {
+    return '';
+  }
+  return String(raw).trim();
+}
+
+/**
+ * Human explorer base URL (Q1=A). NETWORK_SCANNER wins; empty SCANNER is not a second SSOT.
+ * Does not prepend a scheme. Both empty → null.
+ * @param {NodeJS.ProcessEnv} env
+ * @returns {string|null}
+ */
+function resolveNetworkScanner(env) {
+  const primary = readTrimmedEnv(env, 'NETWORK_SCANNER');
+  const alias = readTrimmedEnv(env, 'SCANNER');
+  const chosen = primary || alias;
+  return chosen ? chosen : null;
+}
+
+/**
+ * @param {NodeJS.ProcessEnv} env
+ * @returns {'NETWORK_SCANNER'|'SCANNER'|null}
+ */
+function networkScannerSourceKey(env) {
+  if (readTrimmedEnv(env, 'NETWORK_SCANNER')) {
+    return 'NETWORK_SCANNER';
+  }
+  if (readTrimmedEnv(env, 'SCANNER')) {
+    return 'SCANNER';
+  }
+  return null;
+}
+
+/**
+ * @param {string} url
+ * @returns {string|null} error fragment or null if ok
+ */
+function validateNetworkScannerShape(url) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return `must use http:// or https:// (got ${parsed.protocol})`;
+    }
+    return null;
+  } catch {
+    return 'must be a valid http(s) URL';
+  }
+}
+
+/**
+ * @param {NodeJS.ProcessEnv} env
  * @returns {object}
  */
 function buildConfigFromEnv(env) {
@@ -260,6 +324,7 @@ function buildConfigFromEnv(env) {
     polygonscanApiKey: resolvePolygonscanApiKey(env),
     polygonscanApiBase: resolvePolygonscanApiBase(env),
     polygonscanChainId: resolvePolygonscanChainId(env),
+    networkScanner: resolveNetworkScanner(env),
     rpc: {
       url: normalizeRpcUrl(env.CAPY_RPC_URL),
     },
@@ -318,6 +383,7 @@ module.exports = {
   DEFAULT_POLYGONSCAN_CHAIN_ID,
   isValidPolygonscanApiKeyShape,
   validateCapybaraEnv,
+  resolveNetworkScanner,
   buildConfigFromEnv,
   loadAndValidateConfig,
   resolveConfiguredAction,
