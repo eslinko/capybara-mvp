@@ -135,6 +135,52 @@ describe('Capybara config', () => {
     expect(errors.some((e) => e.includes('POLYGONSCAN_API_KEY has invalid format'))).to.equal(true);
   });
 
+  it('buildConfigFromEnv reads NETWORK_SCANNER as networkScanner', () => {
+    const config = buildConfigFromEnv({
+      ...fixtureEnv,
+      NETWORK_SCANNER: '  https://dogeos-testnet.l2scan.co/  ',
+    });
+    expect(config.networkScanner).to.equal('https://dogeos-testnet.l2scan.co/');
+    expect(config.scanner).to.equal(undefined);
+    expect(validateCapybaraEnv({
+      ...fixtureEnv,
+      NETWORK_SCANNER: 'https://dogeos-testnet.l2scan.co/',
+    })).to.deep.equal([]);
+  });
+
+  it('buildConfigFromEnv sets networkScanner null when explorer env is absent', () => {
+    const config = buildConfigFromEnv(fixtureEnv);
+    expect(config.networkScanner).to.equal(null);
+  });
+
+  it('validateCapybaraEnv rejects a non-http NETWORK_SCANNER', () => {
+    const errors = validateCapybaraEnv({
+      ...fixtureEnv,
+      NETWORK_SCANNER: 'ftp://dogeos-testnet.l2scan.co/',
+    });
+    expect(errors.some((e) => e.includes('NETWORK_SCANNER must use http:// or https://'))).to.equal(true);
+  });
+
+  it('buildConfigFromEnv uses SCANNER only when NETWORK_SCANNER is empty', () => {
+    const aliasOnly = buildConfigFromEnv({
+      ...fixtureEnv,
+      SCANNER: 'https://dogeos-testnet.l2scan.co/',
+    });
+    expect(aliasOnly.networkScanner).to.equal('https://dogeos-testnet.l2scan.co/');
+    const primaryWins = buildConfigFromEnv({
+      ...fixtureEnv,
+      NETWORK_SCANNER: 'https://polygonscan.com/',
+      SCANNER: 'https://dogeos-testnet.l2scan.co/',
+    });
+    expect(primaryWins.networkScanner).to.equal('https://polygonscan.com/');
+    const bothEmpty = buildConfigFromEnv({
+      ...fixtureEnv,
+      NETWORK_SCANNER: '   ',
+      SCANNER: '',
+    });
+    expect(bothEmpty.networkScanner).to.equal(null);
+  });
+
   it('loadAndValidateConfig throws on invalid CAPY_MODE when exitOnError=false', () => {
     expect(() =>
       loadAndValidateConfig({ ...fixtureEnv, CAPY_MODE: 'realty' }, { exitOnError: false })
