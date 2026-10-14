@@ -167,11 +167,13 @@ Action 1 (sweep) после успешного перевода пишет ст�
 | **Новый Wallet на каждый transfer** | Корректный nonce (кэширование signer ломает nonce) | [CapyToken.js:104-106](../../packages/core/src/CapyToken.js#L104) |
 | **Retry + switch эндпоинта на 137** | Переживать rate-limit публичных Polygon-RPC | [CapyToken.js:47-67](../../packages/core/src/CapyToken.js#L47), [RateLimitHelpers.js](../../packages/core/src/lib/infrastructure/RateLimitHelpers.js) |
 | **Mock period from prod log (L3)** | Dry-run сверяется против реальной истории; mock-запись не сдвигает prod `readLastLogDate` | [ndjsonLogReader.js:49](../../packages/core/src/daily-payments/ndjsonLogReader.js#L49), [DailyPaymentsAction.js:148](../../packages/core/src/actions/DailyPaymentsAction.js#L148) |
-| **Etherscan V2 indexer + fallback indicator** | Быстрая сверка через `api.etherscan.io/v2/api?chainid=137`; при ошибке/без ключа — block-scan с явным `fallbackReason` | [PolygonscanClient.js](../../packages/core/src/indexer/PolygonscanClient.js), [reconcileEngine.js](../../packages/core/src/daily-payments/reconcileEngine.js) |
+| **Optional Etherscan V2 indexer + block-scan fallback** | Indexer необязателен. Если задан `SCANNER_API_KEY` (алиас `POLYGONSCAN_API_KEY`), быстрая сверка идёт в `api.etherscan.io/v2/api`, а `chainid` запроса равен `CAPY_CHAIN_ID`, не фиксированному 137. Без ключа или при ошибке indexer — полный block-scan и нейтральный WARN (`Indexer API key не задан` / `Индексатор не ответил`) | [PolygonscanClient.js](../packages/core/src/indexer/PolygonscanClient.js), [reconcileEngine.js](../packages/core/src/daily-payments/reconcileEngine.js) |
 | **Единый типизированный журнал** | Все денежные действия (`payment`/`sweep`/`charge`) пишут в общий per-wallet NDJSON с полем `type` — один источник истории | [ndjsonLogWriter.js:122](../../packages/core/src/daily-payments/ndjsonLogWriter.js#L122), [LOGGING.md](LOGGING.md) |
 | **Сплит `all` на raw-единицах + предпроверка** | Точное деление суммы (остаток→первому), батч не стартует при нехватке у кого-либо | [splitAllocation.js:71](../../packages/core/src/charge-pool/splitAllocation.js#L71), [ChargeToPoolAction.js:232](../../packages/core/src/actions/ChargeToPoolAction.js#L232) |
 | **Общий `resolveLaunchedBy`** | Атрибуция запуска в журнале (единый util вместо дублей) | [runtimeContext.js](../../packages/core/src/runtimeContext.js) |
 | **Баннер боевого режима перед записью** | Видно, что предохранитель снят, до action 1/2/3 | [actions/index.js:27-32](../../packages/core/src/actions/index.js#L27) |
+
+Сеть и indexer: [EPIC-SCR-CAPY-EVM](tasks/epics/EPIC-SCR-CAPY-EVM/EPIC-SCR-CAPY-EVM.md), [INTERVIEW-CAPY-EVM-NETWORK-2026-10-14](tasks/backlog-stories/capybara-evm/INTERVIEW-CAPY-EVM-NETWORK-2026-10-14.md). Runbook смены сети — [USER-MANUAL.md](manuals/USER-MANUAL.md) §Switch network (EVM).
 
 ## 10. Тесты
 

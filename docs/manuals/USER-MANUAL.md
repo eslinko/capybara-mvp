@@ -18,7 +18,7 @@
   подтверждение и выплатить ребёнку.
 - **Списание в пул** — снять с ребёнка (или сразу со всех, поделив сумму) в общий котёл (родитель).
 - **Выплаты за активность** — зачёт контрольной/экзамена (метрики в журнал) и опциональная выплата $CAPY ребёнку.
-- **Деплой контракта** (действие 51) и **доэмиссия** (действие 52) — от кошелька deployer. Браузерный mint — отдельная страница, эти команды его не заменяют: [README-mint.md](../../scripts/README-mint.md).
+- **Деплой контракта** (действие 51) и **доэмиссия** (действие 52) — от кошелька deployer. Браузерный mint — отдельная страница, эти команды его не заменяют: [README-mint.md](../../scripts/README-mint.md). Эта HTML-страница — Phase F и не входит в эпик EPIC-SCR-CAPY-EVM (Interview Q6=A).
 
 Каждое денежное действие пишется в журнал операций — см. §4 и [LOGGING.md](LOGGING.md).
 
@@ -47,8 +47,10 @@ cp capybara/.env.example capybara/.env
 
 | Переменная | Что это | Пример |
 |------------|---------|--------|
-| `CAPY_RPC_URL` | Адрес RPC сети, где живёт $CAPY (публичный `polygon-rpc.com` отключён — нужен ключевой, напр. Ankr) | `https://rpc.ankr.com/polygon/КЛЮЧ` |
-| `CAPY_CHAIN_ID` | ID сети (137 = Polygon) | `137` |
+| `CAPY_RPC_URL` | RPC любой EVM-сети, где живёт $CAPY. Меняй вместе с `CAPY_CHAIN_ID` и `NETWORK_SCANNER`. Для Polygon публичный `polygon-rpc.com` отключён — нужен endpoint оператора | `https://YOUR_EVM_RPC_HOST` |
+| `CAPY_CHAIN_ID` | ID сети. DogeOS testnet = `6281971`. Polygon mainnet = `137` | `6281971` |
+| `NETWORK_SCANNER` | Базовый URL обозревателя для людей (`http` или `https`). Это не ключ индексатора | `https://dogeos-testnet.l2scan.co/` |
+| `SCANNER` | Устаревший алиас `NETWORK_SCANNER`. Читается только если `NETWORK_SCANNER` пуст. Не задавай оба | (пусто) |
 | `CAPY_TOKEN_ADDRESS` | Адрес контракта токена $CAPY | `0x…` |
 | `PARENT_ADDRESS` | Твой адрес (обменник/получатель) | `0x…` |
 | `PARENT_PRIVATE_KEY` | Твой приватный ключ (нужен для выплат детям) | `0x…` |
@@ -59,10 +61,52 @@ cp capybara/.env.example capybara/.env
 | `CAPY_MODE` | Режим: `mock` (тест) или `gfl_reality` (бой). Нет строки = `mock` | `mock` |
 | `DEPLOYER_ADDRESS` | Адрес кошелька, который деплоит и минтит контракт (действия 51 и 52) | `0x…` |
 | `DEPLOYER_PRIVATE_KEY` | Приватный ключ deployer (`0x` можно и без него) | `0x…` |
-| `POLYGONSCAN_API_KEY` | Необязательно. Ключ Etherscan/Polygonscan для быстрой сверки в действии 2; без него — медленный скан сети | `ABC…` |
+| `SCANNER_API_KEY` | Необязательно. Ключ indexer API для быстрой сверки в действии 2. Без ключа сверка идёт полным сканом RPC: медленно, результат верный, предупреждение допустимо | (пусто) |
+| `SCANNER_API_BASE` | Необязательно. База indexer API. Если пусто — `https://api.etherscan.io/v2/api`. Chain id запроса = `CAPY_CHAIN_ID` | `https://api.etherscan.io/v2/api` |
+| `POLYGONSCAN_API_KEY` / `POLYGONSCAN_API_BASE` | Устаревшие алиасы `SCANNER_API_*`. Читаются только если соответствующий `SCANNER_API_*` пуст | (пусто) |
+| `POLYGONSCAN_CHAIN_ID` | Игнорируется. Chain id индексатора всегда равен `CAPY_CHAIN_ID` | — |
 
 Если пропустить обязательную переменную или ошибиться в значении — скрипт **не запустится** и
 понятно скажет, что не так.
+
+Шаблон `capybara/.env.example` уже называет те же ключи: `NETWORK_SCANNER`, `SCANNER_API_*` и алиасы `POLYGONSCAN_*`. В свой `.env` не копируй чужой приватный ключ и не коммить файл с секретами.
+
+---
+
+## Switch network (EVM)
+
+Чеклист смены сети: Polygon ↔ DogeOS и любая другая EVM. Секреты в примеры не входят. Предупреждение о полном скане блоков (пункт «не D») допустимо и не значит, что сеть настроена неверно.
+
+**A. Сменить вместе**
+
+- `CAPY_RPC_URL`
+- `CAPY_CHAIN_ID`
+- `CAPY_TOKEN_ADDRESS` (адрес $CAPY в этой сети)
+- кошельки и deployer: `PARENT_*`, `TRISTAN_*`, `BASTIAN_*`, `DEPLOYER_*`
+- `NETWORK_SCANNER`
+- по желанию `SCANNER_API_KEY` и `SCANNER_API_BASE`
+
+**B. Артефакты для действий 51 и 52**
+
+Если деплой или доэмиссия нужны, а скомпилированных артефактов нет:
+
+```bash
+cd capybara && npm run compile
+```
+
+**C. Примеры без секретов**
+
+DogeOS testnet:
+
+- `CAPY_CHAIN_ID=6281971`
+- `NETWORK_SCANNER=https://dogeos-testnet.l2scan.co/`
+- `CAPY_RPC_URL=https://YOUR_EVM_RPC_HOST`
+
+Polygon mainnet:
+
+- `CAPY_CHAIN_ID=137`
+- `NETWORK_SCANNER=https://polygonscan.com/`
+- `CAPY_RPC_URL=https://YOUR_EVM_RPC_HOST`
 
 ---
 
@@ -219,6 +263,8 @@ CAPYBARA_ACTION=2 CAPYBARA_WALLET=tristan CAPYBARA_FROM=2026-06-01 CAPYBARA_TO=2
 5. Пишет результат в лог.
 
 Если долг = 0 — просто скажет «🎉 Всё выплачено» и ничего не отправит.
+
+Сверка с сетью не привязана к бренду Polygonscan. Если задан `SCANNER_API_KEY` (или устаревший алиас `POLYGONSCAN_API_KEY`), действие 2 сначала спрашивает indexer API. Chain id этого запроса равен `CAPY_CHAIN_ID`. Если ключа нет, в логе будет `Indexer API key не задан — сверка через полный скан RPC (медленно)`. Если ключ задан, но indexer не ответил — `⚠️ Индексатор не ответил (ключ задан) — сверка через полный скан RPC (медленно)`. Оба случая допустимы: дальше идёт полный скан блоков, и выплата считается по нему.
 
 ---
 
@@ -377,6 +423,7 @@ cat capybara/logs/capybara/tristan.ndjson
 | `Подтверждение выплаты требует интерактивный TTY` | Действия 2/3 нельзя запускать не в терминале — запусти вручную в терминале |
 | `🛑 Отменено — ничего не отправлено` | Ты ответил «нет» на подтверждение |
 | `🎉 Всё выплачено за период` | Долга нет, доплачивать нечего |
+| `Indexer API key не задан — сверка через полный скан RPC (медленно)` или `⚠️ Индексатор не ответил (ключ задан) — сверка через полный скан RPC (медленно)` | Действие 2 сверилось полным сканом блоков. Это допустимо. Для быстрой сверки задай `SCANNER_API_KEY` |
 | `⚠️ Нехватка баланса — спишу доступное …` (действие 3) | У ребёнка меньше запрошенного — спишется доступное, недобор пометится в журнале |
 | `🚫 Предпроверка не пройдена — недостаточно средств` (действие 3 `all`) | У кого-то не хватает его доли — списание не начато; показано, у кого мало |
 | `📊 Итог all: успешно N/M` (действие 3 `all`) | Отчёт по батчу: сколько списаний прошло из общего числа |
@@ -400,3 +447,11 @@ cat capybara/logs/capybara/tristan.ndjson
 ```bash
 LOG_LEVEL=debug CAPYBARA_ACTION=0 node capybara/cli/capybara.js
 ```
+
+---
+
+## Related
+
+- Эпик сети: [EPIC-SCR-CAPY-EVM](../tasks/epics/EPIC-SCR-CAPY-EVM/EPIC-SCR-CAPY-EVM.md)
+- Зафиксированные ответы: [INTERVIEW-CAPY-EVM-NETWORK-2026-10-14](../tasks/backlog-stories/capybara-evm/INTERVIEW-CAPY-EVM-NETWORK-2026-10-14.md)
+- Техника: [ARCHITECTURE.md](ARCHITECTURE.md)
