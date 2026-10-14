@@ -5,6 +5,7 @@ const sinon = require('sinon');
 const ethersModule = require('ethers');
 const { buildConfigFromEnv } = require('../../packages/core/src/config/build');
 const { createCapybaraProvider, maskPrivateKey } = require('../../packages/core/src/ProviderFactory');
+const RpcProviderManager = require('../../packages/core/src/lib/infrastructure/RpcProviderManager');
 const logger = require('../../packages/core/src/lib/infrastructure/Logger');
 
 describe('Capybara ProviderFactory', () => {
@@ -60,6 +61,7 @@ describe('Capybara ProviderFactory', () => {
     const result = await createCapybaraProvider(config, logger);
     expect(result.provider).to.equal(providerStub);
     expect(result.chainId).to.equal(999);
+    expect(result.rpcManager).to.equal(null);
     expect(jsonRpcProviderStub.called).to.equal(true);
   });
 
@@ -76,5 +78,55 @@ describe('Capybara ProviderFactory', () => {
     const masked = maskPrivateKey('0x' + 'a'.repeat(64));
     expect(masked).to.not.include('a'.repeat(64));
     expect(masked).to.include('...');
+  });
+
+  for (const chainId of [31337, 6281971]) {
+    it(`non-137 chainId ${chainId} leaves rpcManager null`, async () => {
+      const anyChain = buildConfigFromEnv({
+        CAPY_RPC_URL: 'http://127.0.0.1:8545',
+        CAPY_CHAIN_ID: String(chainId),
+        CAPY_TOKEN_ADDRESS: '0x1111111111111111111111111111111111111111',
+        PARENT_ADDRESS: '0x2222222222222222222222222222222222222222',
+        PARENT_PRIVATE_KEY: '0x' + 'c'.repeat(64),
+        CAPY_DAILY_TRISTAN: '5',
+        CAPY_DAILY_BASTIAN: '5',
+        TRISTAN_ADDRESS: '0x3333333333333333333333333333333333333333',
+        TRISTAN_PRIVATE_KEY: '0x' + 'a'.repeat(64),
+        BASTIAN_ADDRESS: '0x4444444444444444444444444444444444444444',
+        BASTIAN_PRIVATE_KEY: '0x' + 'b'.repeat(64),
+      });
+      getNetworkStub.resolves({ chainId: BigInt(chainId) });
+      getBlockNumberStub.resolves(7);
+
+      const result = await createCapybaraProvider(anyChain, logger);
+      expect(result.rpcManager).to.equal(null);
+      expect(result.chainId).to.equal(chainId);
+      expect(result.provider).to.equal(providerStub);
+      expect(warnStub.called).to.equal(false);
+    });
+  }
+
+  it('chainId 137 still constructs RpcProviderManager and does not add a DogeOS host', async () => {
+    const polygon = buildConfigFromEnv({
+      CAPY_RPC_URL: 'http://127.0.0.1:8545',
+      CAPY_CHAIN_ID: '137',
+      CAPY_TOKEN_ADDRESS: '0x1111111111111111111111111111111111111111',
+      PARENT_ADDRESS: '0x2222222222222222222222222222222222222222',
+      PARENT_PRIVATE_KEY: '0x' + 'c'.repeat(64),
+      CAPY_DAILY_TRISTAN: '5',
+      CAPY_DAILY_BASTIAN: '5',
+      TRISTAN_ADDRESS: '0x3333333333333333333333333333333333333333',
+      TRISTAN_PRIVATE_KEY: '0x' + 'a'.repeat(64),
+      BASTIAN_ADDRESS: '0x4444444444444444444444444444444444444444',
+      BASTIAN_PRIVATE_KEY: '0x' + 'b'.repeat(64),
+    });
+    getNetworkStub.resolves({ chainId: 137n });
+    getBlockNumberStub.resolves(9);
+
+    const result = await createCapybaraProvider(polygon, logger);
+    expect(result.rpcManager).to.be.instanceOf(RpcProviderManager);
+    expect(result.rpcManager.shouldUseFallback()).to.equal(true);
+    expect(result.rpcManager.endpoints.join(' ')).to.not.match(/dogeos|6281971/i);
+    expect(result.chainId).to.equal(137);
   });
 });
