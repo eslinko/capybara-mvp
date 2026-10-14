@@ -195,7 +195,7 @@ describe('PolygonscanClient', () => {
     expect(fetchImpl.calledOnce).to.equal(true);
   });
 
-  it('throws on Polygonscan API error', async () => {
+  it('throws the client API error without a Polygonscan brand', async () => {
     const fetchImpl = sinon.stub().resolves({
       ok: true,
       json: async () => ({ status: '0', message: 'Invalid API Key' }),
@@ -214,6 +214,45 @@ describe('PolygonscanClient', () => {
       expect.fail('expected API error');
     } catch (error) {
       expect(error.message).to.match(/Invalid API Key/i);
+      expect(error.message).to.not.match(/Polygonscan/i);
+    }
+  });
+
+  it('throws the client HTTP status without a Polygonscan brand', async () => {
+    const fetchImpl = sinon.stub().resolves({
+      ok: false,
+      status: 429,
+      json: async () => ({}),
+    });
+    const client = new PolygonscanClient({
+      apiKey: 'ABCDEFGHIJKL',
+      tokenAddress: '0xtoken',
+      fetchImpl,
+    });
+
+    try {
+      await client.queryParentToChildTransfers({
+        parentAddress: '0xparent',
+        childAddress: '0xchild',
+      });
+      expect.fail('expected HTTP error');
+    } catch (error) {
+      expect(error.message).to.match(/Indexer HTTP 429/);
+      expect(error.message).to.not.match(/Polygonscan/i);
+    }
+  });
+
+  it('throws a missing-key message without a Polygonscan brand', async () => {
+    const client = new PolygonscanClient({ apiKey: null, tokenAddress: '0xtoken' });
+    try {
+      await client.queryParentToChildTransfers({
+        parentAddress: '0xparent',
+        childAddress: '0xchild',
+      });
+      expect.fail('expected missing key');
+    } catch (error) {
+      expect(error.message).to.match(/Indexer API key is required/i);
+      expect(error.message).to.not.match(/Polygonscan/i);
     }
   });
 });
@@ -278,7 +317,7 @@ describe('reconcile indexer integration', () => {
       toBlock: 200,
     });
 
-    expect(indexerResult.reconcileSource).to.equal('polygonscan');
+    expect(indexerResult.reconcileSource).to.equal('indexer');
     expect(indexerResult.reconcileFallbackReason).to.equal(null);
     expect(capyToken.queryTransfers.called).to.equal(false);
     expect(indexerResult.owedTotal).to.equal(0n);
@@ -326,7 +365,8 @@ describe('reconcile indexer integration', () => {
     expect(fallbackReason).to.equal('indexer_error');
     expect(capyToken.queryTransfers.calledOnce).to.equal(true);
     expect(logger.warn.calledOnce).to.equal(true);
-    expect(String(logger.warn.firstCall.args[0])).to.match(/POLYGONSCAN_API_KEY задан/i);
+    expect(String(logger.warn.firstCall.args[0])).to.match(/Индексатор не ответил/i);
+    expect(String(logger.warn.firstCall.args[0])).to.not.match(/Polygonscan/i);
     expect(String(logger.warn.firstCall.args[0])).to.match(/rate limit/i);
   });
 
@@ -349,14 +389,16 @@ describe('reconcile indexer integration', () => {
 
     expect(source).to.equal('blockscan');
     expect(fallbackReason).to.equal('no_api_key');
-    expect(String(logger.warn.firstCall.args[0])).to.match(/POLYGONSCAN_API_KEY не задан/i);
+    expect(String(logger.warn.firstCall.args[0])).to.match(/Indexer API key не задан/i);
+    expect(String(logger.warn.firstCall.args[0])).to.not.match(/Polygonscan/i);
   });
 });
 
 describe('formatReconcileSourceLine (M1)', () => {
-  it('distinguishes polygonscan success from indexer_error fallback', () => {
-    expect(formatReconcileSourceLine('polygonscan')).to.match(/Etherscan indexer/i);
+  it('distinguishes indexer success from indexer_error fallback', () => {
+    expect(formatReconcileSourceLine('indexer')).to.match(/indexer API/i);
     expect(formatReconcileSourceLine('blockscan', 'indexer_error')).to.match(/ключ задан/i);
-    expect(formatReconcileSourceLine('blockscan', 'no_api_key')).to.match(/POLYGONSCAN_API_KEY не задан/i);
+    expect(formatReconcileSourceLine('blockscan', 'no_api_key')).to.match(/Indexer API key не задан/i);
+    expect(formatReconcileSourceLine('blockscan', 'no_api_key')).to.not.match(/Polygonscan/i);
   });
 });

@@ -120,6 +120,24 @@ describe('Capybara config', () => {
     expect(errors.some((e) => e.includes('CAPY_MODE must be one of'))).to.equal(true);
   });
 
+  it('SCANNER_API_KEY wins over the POLYGONSCAN_API_KEY alias', () => {
+    const config = buildConfigFromEnv({
+      ...fixtureEnv,
+      SCANNER_API_KEY: 'SCANNERKEY12345',
+      POLYGONSCAN_API_KEY: 'POLYGONKEY12345',
+      SCANNER_API_BASE: 'https://scanner.example/api',
+    });
+    expect(config.scannerApiKey).to.equal('SCANNERKEY12345');
+    expect(config.polygonscanApiKey).to.equal('SCANNERKEY12345');
+    expect(config.scannerApiBase).to.equal('https://scanner.example/api');
+    const aliasOnly = buildConfigFromEnv({
+      ...fixtureEnv,
+      POLYGONSCAN_API_KEY: 'POLYGONKEY12345',
+    });
+    expect(aliasOnly.scannerApiKey).to.equal('POLYGONKEY12345');
+    expect(aliasOnly.polygonscanApiKey).to.equal('POLYGONKEY12345');
+  });
+
   it('buildConfigFromEnv omits polygonscanApiKey when unset', () => {
     const config = buildConfigFromEnv(fixtureEnv);
     expect(config.polygonscanApiKey).to.equal(null);
