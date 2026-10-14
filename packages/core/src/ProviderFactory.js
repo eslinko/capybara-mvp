@@ -27,6 +27,9 @@ async function createCapybaraProvider(config, logger) {
 
   const expectedChainId = Number(config.chainId);
 
+  // Q7⊆A: RpcProviderManager is Polygon mainnet only (chainId 137).
+  // Any other CAPY_CHAIN_ID keeps the single JsonRpcProvider from CAPY_RPC_URL
+  // and leaves rpcManager null. Do not add a DogeOS public RPC list here.
   if (expectedChainId === 137) {
     rpcManager = new RpcProviderManager('polygon', 137, logger, rpcUrl);
     if (rpcManager.shouldUseFallback()) {

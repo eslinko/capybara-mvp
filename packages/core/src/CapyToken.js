@@ -36,7 +36,12 @@ class CapyToken {
     this.contract = new ethers.Contract(this.tokenAddress, MINIMAL_ERC20_ABI, provider);
   }
 
-  /** @returns {boolean} */
+  /**
+   * Polygon mainnet retry only (chainId 137 and an rpcManager).
+   * Any other chain calls the operation directly. Do not widen this gate:
+   * that would change Polygon retry semantics.
+   * @returns {boolean}
+   */
   _usesRpcRetry() {
     return Boolean(this.rpcManager && Number(this.chainId) === 137);
   }
