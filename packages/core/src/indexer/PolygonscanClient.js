@@ -69,13 +69,13 @@ class PolygonscanClient {
 
     const response = await this.fetchImpl(url.toString());
     if (!response.ok) {
-      throw new Error(`Polygonscan HTTP ${response.status}`);
+      throw new Error(`Indexer HTTP ${response.status}`);
     }
 
     const body = await response.json();
     const message = String(body.message ?? '');
     if (body.status !== '1' && message !== 'No transactions found') {
-      throw new Error(`Polygonscan API error: ${message || body.result}`);
+      throw new Error(`Indexer API error: ${message || body.result}`);
     }
 
     return Array.isArray(body.result) ? body.result : [];
@@ -94,7 +94,7 @@ class PolygonscanClient {
    */
   async queryParentToChildTransfers(params) {
     if (!this.hasApiKey()) {
-      throw new Error('POLYGONSCAN_API_KEY is required for indexer queries');
+      throw new Error('Indexer API key is required for indexer queries');
     }
     if (typeof this.fetchImpl !== 'function') {
       throw new Error('fetch is not available for PolygonscanClient');

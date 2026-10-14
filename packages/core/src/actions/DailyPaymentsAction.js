@@ -49,18 +49,18 @@ function displayWalletName(walletName) {
 const { resolveLaunchedBy } = require('../runtimeContext');
 
 /**
- * @param {'polygonscan'|'blockscan'} source
+ * @param {'indexer'|'blockscan'} source
  * @param {'no_api_key'|'indexer_error'|null} [fallbackReason]
  * @returns {string}
  */
 function formatReconcileSourceLine(source, fallbackReason = null) {
-  if (source === 'polygonscan') {
-    return '🔎 Источник сверки: Etherscan indexer (V2)';
+  if (source === 'indexer') {
+    return '🔎 Источник сверки: indexer API';
   }
   if (fallbackReason === 'indexer_error') {
-    return '⚠️ Индексатор не ответил (ключ задан) — сверка через полный скан сети (медленно)';
+    return '⚠️ Индексатор не ответил (ключ задан) — сверка через полный скан RPC (медленно)';
   }
-  return '⚠️ POLYGONSCAN_API_KEY не задан — сверка через полный скан сети (медленно)';
+  return 'Indexer API key не задан — сверка через полный скан RPC (медленно)';
 }
 
 /**

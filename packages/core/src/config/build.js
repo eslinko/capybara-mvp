@@ -22,15 +22,25 @@ const DEFAULT_POLYGONSCAN_API_BASE = 'https://api.etherscan.io/v2/api';
 const DEFAULT_POLYGONSCAN_CHAIN_ID = 137;
 
 /**
+ * Indexer API base (Q4=A). SCANNER_API_BASE first, else POLYGONSCAN_API_BASE, else the V2 default.
+ * @param {NodeJS.ProcessEnv} env
+ * @returns {string}
+ */
+function resolveScannerApiBase(env) {
+  const primary = readTrimmedEnv(env, 'SCANNER_API_BASE');
+  if (primary) {
+    return primary;
+  }
+  const alias = readTrimmedEnv(env, 'POLYGONSCAN_API_BASE');
+  return alias || DEFAULT_POLYGONSCAN_API_BASE;
+}
+
+/**
  * @param {NodeJS.ProcessEnv} env
  * @returns {string}
  */
 function resolvePolygonscanApiBase(env) {
-  const raw = env.POLYGONSCAN_API_BASE;
-  if (raw === undefined || raw === null || String(raw).trim() === '') {
-    return DEFAULT_POLYGONSCAN_API_BASE;
-  }
-  return String(raw).trim();
+  return resolveScannerApiBase(env);
 }
 
 /**
@@ -58,15 +68,25 @@ function resolvePolygonscanChainId(env) {
 }
 
 /**
+ * Indexer API key (Q4=A). SCANNER_API_KEY first, else POLYGONSCAN_API_KEY.
+ * @param {NodeJS.ProcessEnv} env
+ * @returns {string|null}
+ */
+function resolveScannerApiKey(env) {
+  const primary = readTrimmedEnv(env, 'SCANNER_API_KEY');
+  if (primary) {
+    return primary;
+  }
+  const alias = readTrimmedEnv(env, 'POLYGONSCAN_API_KEY');
+  return alias || null;
+}
+
+/**
  * @param {NodeJS.ProcessEnv} env
  * @returns {string|null}
  */
 function resolvePolygonscanApiKey(env) {
-  const raw = env.POLYGONSCAN_API_KEY;
-  if (raw === undefined || raw === null || String(raw).trim() === '') {
-    return null;
-  }
-  return String(raw).trim();
+  return resolveScannerApiKey(env);
 }
 
 /**
@@ -185,12 +205,10 @@ function validateCapybaraEnv(env) {
     }
   }
 
-  const polygonscanRaw = env.POLYGONSCAN_API_KEY;
-  if (polygonscanRaw !== undefined && polygonscanRaw !== null && String(polygonscanRaw).trim() !== '') {
-    const polygonscanKey = resolvePolygonscanApiKey(env);
-    if (!polygonscanKey || !isValidPolygonscanApiKeyShape(polygonscanKey)) {
-      errors.push('POLYGONSCAN_API_KEY has invalid format (expected alphanumeric API key, min 10 chars)');
-    }
+  const scannerKey = resolveScannerApiKey(env);
+  if (scannerKey && !isValidPolygonscanApiKeyShape(scannerKey)) {
+    const source = readTrimmedEnv(env, 'SCANNER_API_KEY') ? 'SCANNER_API_KEY' : 'POLYGONSCAN_API_KEY';
+    errors.push(`${source} has invalid format (expected alphanumeric API key, min 10 chars)`);
   }
 
   const networkScanner = resolveNetworkScanner(env);
@@ -332,8 +350,10 @@ function validateNetworkScannerShape(url) {
 function buildConfigFromEnv(env) {
   return {
     mode: resolveCapyMode(env),
-    polygonscanApiKey: resolvePolygonscanApiKey(env),
-    polygonscanApiBase: resolvePolygonscanApiBase(env),
+    scannerApiKey: resolveScannerApiKey(env),
+    scannerApiBase: resolveScannerApiBase(env),
+    polygonscanApiKey: resolveScannerApiKey(env),
+    polygonscanApiBase: resolveScannerApiBase(env),
     polygonscanChainId: resolvePolygonscanChainId(env),
     networkScanner: resolveNetworkScanner(env),
     rpc: {
@@ -388,7 +408,9 @@ module.exports = {
   ALLOWED_CAPY_MODES,
   resolveCapyMode,
   resolvePolygonscanApiKey,
+  resolveScannerApiKey,
   resolvePolygonscanApiBase,
+  resolveScannerApiBase,
   resolveIndexerChainId,
   resolvePolygonscanChainId,
   DEFAULT_POLYGONSCAN_API_BASE,

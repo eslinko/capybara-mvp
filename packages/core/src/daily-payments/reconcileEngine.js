@@ -63,7 +63,7 @@ async function aggregateTransfersByDay(events, provider, periodDays) {
  *   toBlock: number|string,
  *   logger?: import('../../utils/Logger')|null,
  * }} params
- * @returns {Promise<{ events: object[], source: 'polygonscan'|'blockscan', fallbackReason?: 'no_api_key'|'indexer_error'|null, fallbackError?: string|null }>}
+ * @returns {Promise<{ events: object[], source: 'indexer'|'blockscan', fallbackReason?: 'no_api_key'|'indexer_error'|null, fallbackError?: string|null }>}
  */
 async function fetchTransferEvents(params) {
   const {
@@ -89,22 +89,20 @@ async function fetchTransferEvents(params) {
         fromBlock,
         toBlock,
       });
-      return { events, source: 'polygonscan', fallbackReason: null, fallbackError: null };
+      return { events, source: 'indexer', fallbackReason: null, fallbackError: null };
     } catch (error) {
       fallbackReason = 'indexer_error';
       fallbackError = error.message;
       if (logger) {
         logger.warn(
-          `⚠️ Индексатор не ответил (POLYGONSCAN_API_KEY задан) — fallback на block-scan: ${error.message}`
+          `⚠️ Индексатор не ответил — fallback на block-scan: ${error.message}`
         );
       }
     }
   } else {
     fallbackReason = 'no_api_key';
     if (logger) {
-      logger.warn(
-        '⚠️ POLYGONSCAN_API_KEY не задан — сверка через полный скан сети (медленно)'
-      );
+      logger.warn('Indexer API key не задан — сверка через полный скан RPC (медленно)');
     }
   }
 
@@ -134,7 +132,7 @@ async function fetchTransferEvents(params) {
  *   polygonscanApiBase?: string,
  *   polygonscanChainId?: number,
  * }} params
- * @returns {Promise<{ breakdown: Array<{ date: string, expected: bigint, actual: bigint, match: boolean, owed: bigint }>, owedTotal: bigint, reconcileSource: 'polygonscan'|'blockscan', reconcileFallbackReason: 'no_api_key'|'indexer_error'|null }>}
+ * @returns {Promise<{ breakdown: Array<{ date: string, expected: bigint, actual: bigint, match: boolean, owed: bigint }>, owedTotal: bigint, reconcileSource: 'indexer'|'blockscan', reconcileFallbackReason: 'no_api_key'|'indexer_error'|null }>}
  */
 async function reconcileDailyPayments(params) {
   const {
