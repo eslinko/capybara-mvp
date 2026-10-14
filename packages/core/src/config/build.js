@@ -34,16 +34,27 @@ function resolvePolygonscanApiBase(env) {
 }
 
 /**
+ * Indexer chain id (Q3=A). Always CAPY_CHAIN_ID. POLYGONSCAN_CHAIN_ID is not an SSOT.
+ * Missing or invalid CAPY → null, not a silent 137.
  * @param {NodeJS.ProcessEnv} env
- * @returns {number}
+ * @returns {number|null}
  */
-function resolvePolygonscanChainId(env) {
-  const raw = env.POLYGONSCAN_CHAIN_ID;
+function resolveIndexerChainId(env) {
+  const raw = env?.CAPY_CHAIN_ID;
   if (raw === undefined || raw === null || String(raw).trim() === '') {
-    return DEFAULT_POLYGONSCAN_CHAIN_ID;
+    return null;
   }
   const chainId = Number(String(raw).trim());
-  return Number.isSafeInteger(chainId) && chainId > 0 ? chainId : DEFAULT_POLYGONSCAN_CHAIN_ID;
+  return Number.isSafeInteger(chainId) && chainId > 0 ? chainId : null;
+}
+
+/**
+ * @deprecated Use resolveIndexerChainId. Ignores POLYGONSCAN_CHAIN_ID (rename is EVM-03).
+ * @param {NodeJS.ProcessEnv} env
+ * @returns {number|null}
+ */
+function resolvePolygonscanChainId(env) {
+  return resolveIndexerChainId(env);
 }
 
 /**
@@ -378,6 +389,7 @@ module.exports = {
   resolveCapyMode,
   resolvePolygonscanApiKey,
   resolvePolygonscanApiBase,
+  resolveIndexerChainId,
   resolvePolygonscanChainId,
   DEFAULT_POLYGONSCAN_API_BASE,
   DEFAULT_POLYGONSCAN_CHAIN_ID,

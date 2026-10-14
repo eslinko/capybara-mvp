@@ -188,7 +188,7 @@ class DailyPaymentsAction {
       tokenAddress: config.token.address,
       polygonscanApiKey: config.polygonscanApiKey ?? null,
       polygonscanApiBase: config.polygonscanApiBase,
-      polygonscanChainId: config.polygonscanChainId,
+      polygonscanChainId: config.chainId,
     });
 
     this.logger.info(formatReconcileSourceLine(reconcileSource, reconcileFallbackReason));
