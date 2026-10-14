@@ -135,6 +135,17 @@ describe('Capybara config', () => {
     expect(errors.some((e) => e.includes('POLYGONSCAN_API_KEY has invalid format'))).to.equal(true);
   });
 
+  it('indexer chain id follows CAPY_CHAIN_ID and ignores POLYGONSCAN_CHAIN_ID', () => {
+    const config = buildConfigFromEnv({
+      ...fixtureEnv,
+      CAPY_CHAIN_ID: '6281971',
+      POLYGONSCAN_CHAIN_ID: '137',
+    });
+    expect(config.chainId).to.equal(6281971);
+    expect(config.polygonscanChainId).to.equal(6281971);
+    expect(buildConfigFromEnv(fixtureEnv).polygonscanChainId).to.equal(31337);
+  });
+
   it('buildConfigFromEnv reads NETWORK_SCANNER as networkScanner', () => {
     const config = buildConfigFromEnv({
       ...fixtureEnv,

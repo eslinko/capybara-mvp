@@ -74,6 +74,33 @@ describe('PolygonscanClient', () => {
     expect(calledUrl).to.include('action=tokentx');
   });
 
+  it('query URL uses a passed non-137 chainId instead of the unit default', async () => {
+    const parent = '0x2222222222222222222222222222222222222222';
+    const child = '0x3333333333333333333333333333333333333333';
+    const fetchImpl = sinon.stub().resolves({
+      ok: true,
+      json: async () => ({ status: '1', result: [] }),
+    });
+
+    const client = new PolygonscanClient({
+      apiKey: 'ABCDEFGHIJKL',
+      tokenAddress: '0xtoken',
+      chainId: 6281971,
+      fetchImpl,
+    });
+
+    await client.queryParentToChildTransfers({
+      parentAddress: parent,
+      childAddress: child,
+      fromBlock: 0,
+      toBlock: 999,
+    });
+
+    const calledUrl = fetchImpl.firstCall.args[0];
+    expect(calledUrl).to.include('chainid=6281971');
+    expect(calledUrl).to.not.include('chainid=137');
+  });
+
   it('queryParentToChildTransfers advances block window when offset limit hit (L2)', async () => {
     const parent = '0x2222222222222222222222222222222222222222';
     const child = '0x3333333333333333333333333333333333333333';
