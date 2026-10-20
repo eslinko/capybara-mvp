@@ -106,6 +106,73 @@ async function readExistingDayDates(wallet, logDir = DEFAULT_LOG_DIR) {
   return dates;
 }
 
+/**
+ * Sum prod-journal amounts for period dates (Q5=A).
+ * day.actual on day.date, plus payment.paid_total on payment.date.
+ * paid_total is not split across payment.days. Missing date stays 0.
+ * @param {string} wallet
+ * @param {string[]} periodDays
+ * @param {string} [logDir]
+ * @returns {Promise<Record<string, bigint>>}
+ */
+async function actualByDayFromJournal(wallet, periodDays, logDir = DEFAULT_LOG_DIR) {
+  const periodSet = new Set(periodDays);
+  /** @type {Record<string, bigint>} */
+  const actualByDay = {};
+  for (const day of periodDays) {
+    actualByDay[day] = 0n;
+  }
+
+  const filePath = getWalletLogPath(wallet, getProdLogDir(logDir));
+  let content;
+  try {
+    content = await fs.readFile(filePath, 'utf8');
+  } catch (error) {
+    if (error && error.code === 'ENOENT') {
+      return actualByDay;
+    }
+    throw error;
+  }
+
+  for (const line of content.split('\n').map((entry) => entry.trim()).filter(Boolean)) {
+    let row;
+    try {
+      row = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (row.type === 'day') {
+      addJournalAmount(actualByDay, periodSet, row.date, row.actual);
+    } else if (row.type === 'payment') {
+      addJournalAmount(actualByDay, periodSet, row.date, row.paid_total);
+    }
+  }
+
+  return actualByDay;
+}
+
+/**
+ * @param {Record<string, bigint>} actualByDay
+ * @param {Set<string>} periodSet
+ * @param {unknown} date
+ * @param {unknown} raw
+ */
+function addJournalAmount(actualByDay, periodSet, date, raw) {
+  if (typeof date !== 'string' || !periodSet.has(date)) {
+    return;
+  }
+  if (raw === undefined || raw === null || String(raw).trim() === '') {
+    return;
+  }
+  let value;
+  try {
+    value = BigInt(String(raw).trim());
+  } catch {
+    return;
+  }
+  actualByDay[date] += value;
+}
+
 module.exports = {
   DEFAULT_LOG_DIR,
   MOCK_LOG_SUBDIR,
@@ -115,4 +182,5 @@ module.exports = {
   getWalletLogPath,
   readLastLogDate,
   readExistingDayDates,
+  actualByDayFromJournal,
 };

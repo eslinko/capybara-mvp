@@ -7,6 +7,7 @@ const {
   estimateFromBlockForUtcDate,
   estimateToBlockForUtcDate,
 } = require('./dateUtils');
+const { actualByDayFromJournal } = require('./ndjsonLogReader');
 
 /**
  * @param {import('ethers').Log[]} events
@@ -131,8 +132,11 @@ async function fetchTransferEvents(params) {
  *   polygonscanApiKey?: string|null,
  *   polygonscanApiBase?: string,
  *   polygonscanChainId?: number,
+ *   actualSource?: 'journal'|'indexer'|'blockscan'|null,
+ *   wallet?: string|null,
+ *   logDir?: string,
  * }} params
- * @returns {Promise<{ breakdown: Array<{ date: string, expected: bigint, actual: bigint, match: boolean, owed: bigint }>, owedTotal: bigint, reconcileSource: 'indexer'|'blockscan', reconcileFallbackReason: 'no_api_key'|'indexer_error'|null }>}
+ * @returns {Promise<{ breakdown: Array<{ date: string, expected: bigint, actual: bigint, match: boolean, owed: bigint }>, owedTotal: bigint, reconcileSource: 'indexer'|'blockscan'|'journal', reconcileFallbackReason: 'no_api_key'|'indexer_error'|null }>}
  */
 async function reconcileDailyPayments(params) {
   const {
@@ -151,7 +155,23 @@ async function reconcileDailyPayments(params) {
     polygonscanApiKey = null,
     polygonscanApiBase,
     polygonscanChainId,
+    actualSource = null,
+    wallet = null,
+    logDir,
   } = params;
+
+  const expectedRaw = ethers.parseUnits(dailyRateHuman, decimals);
+
+  if (actualSource === 'journal') {
+    const actualByDay = await actualByDayFromJournal(wallet, periodDays, logDir);
+    const { breakdown, owedTotal } = buildOwedBreakdown(periodDays, actualByDay, expectedRaw);
+    return {
+      breakdown,
+      owedTotal,
+      reconcileSource: 'journal',
+      reconcileFallbackReason: null,
+    };
+  }
 
   let fromBlock = fromBlockParam;
   if (fromBlock === undefined || fromBlock === 0) {
@@ -191,8 +211,18 @@ async function reconcileDailyPayments(params) {
   });
 
   const actualByDay = await aggregateTransfersByDay(events, provider, periodDays);
-  const expectedRaw = ethers.parseUnits(dailyRateHuman, decimals);
+  const { breakdown, owedTotal } = buildOwedBreakdown(periodDays, actualByDay, expectedRaw);
 
+  return { breakdown, owedTotal, reconcileSource, reconcileFallbackReason };
+}
+
+/**
+ * @param {string[]} periodDays
+ * @param {Record<string, bigint>} actualByDay
+ * @param {bigint} expectedRaw
+ * @returns {{ breakdown: Array<{ date: string, expected: bigint, actual: bigint, match: boolean, owed: bigint }>, owedTotal: bigint }}
+ */
+function buildOwedBreakdown(periodDays, actualByDay, expectedRaw) {
   /** @type {Array<{ date: string, expected: bigint, actual: bigint, match: boolean, owed: bigint }>} */
   const breakdown = [];
   let owedTotal = 0n;
@@ -210,7 +240,7 @@ async function reconcileDailyPayments(params) {
     });
   }
 
-  return { breakdown, owedTotal, reconcileSource, reconcileFallbackReason };
+  return { breakdown, owedTotal };
 }
 
 module.exports = {
