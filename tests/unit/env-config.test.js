@@ -287,4 +287,58 @@ describe('Capybara config', () => {
     delete process.env.CAPYBARA_LAZY_CONFIG;
     delete require.cache[require.resolve('../../packages/core/src/config/index')];
   });
+
+  describe('CAPY_RECONCILE actualSource', () => {
+    const key = 'SCANNERKEY12';
+
+    it('defaults to auto and journal when no key and no mode', () => {
+      const config = buildConfigFromEnv(fixtureEnv);
+      expect(config.reconcileMode).to.equal('auto');
+      expect(config.actualSource).to.equal('journal');
+    });
+
+    for (const mode of ['auto', 'journal', 'indexer']) {
+      it(`${mode} without a key resolves to journal`, () => {
+        const config = buildConfigFromEnv({ ...fixtureEnv, CAPY_RECONCILE: mode });
+        expect(config.reconcileMode).to.equal(mode);
+        expect(config.actualSource).to.equal('journal');
+      });
+
+      it(`${mode} with SCANNER_API_KEY resolves to indexer`, () => {
+        const config = buildConfigFromEnv({
+          ...fixtureEnv,
+          CAPY_RECONCILE: mode,
+          SCANNER_API_KEY: key,
+        });
+        expect(config.reconcileMode).to.equal(mode);
+        expect(config.actualSource).to.equal('indexer');
+      });
+    }
+
+    it('blockscan wins with and without a key', () => {
+      expect(buildConfigFromEnv({ ...fixtureEnv, CAPY_RECONCILE: 'blockscan' }).actualSource).to.equal('blockscan');
+      expect(buildConfigFromEnv({
+        ...fixtureEnv,
+        CAPY_RECONCILE: 'blockscan',
+        SCANNER_API_KEY: key,
+      }).actualSource).to.equal('blockscan');
+    });
+
+    it('POLYGONSCAN_API_KEY alias alone still counts as a key', () => {
+      const config = buildConfigFromEnv({ ...fixtureEnv, POLYGONSCAN_API_KEY: key });
+      expect(config.reconcileMode).to.equal('auto');
+      expect(config.actualSource).to.equal('indexer');
+    });
+
+    it('blank CAPY_RECONCILE is auto', () => {
+      const config = buildConfigFromEnv({ ...fixtureEnv, CAPY_RECONCILE: '   ' });
+      expect(config.reconcileMode).to.equal('auto');
+      expect(config.actualSource).to.equal('journal');
+    });
+
+    it('validateCapybaraEnv names an invalid CAPY_RECONCILE', () => {
+      const errors = validateCapybaraEnv({ ...fixtureEnv, CAPY_RECONCILE: 'chain' });
+      expect(errors.some((error) => error.includes('CAPY_RECONCILE must be one of: auto, journal, blockscan, indexer'))).to.equal(true);
+    });
+  });
 });
