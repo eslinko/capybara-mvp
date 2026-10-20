@@ -49,13 +49,16 @@ function displayWalletName(walletName) {
 const { resolveLaunchedBy } = require('../runtimeContext');
 
 /**
- * @param {'indexer'|'blockscan'} source
+ * @param {'indexer'|'blockscan'|'journal'} source
  * @param {'no_api_key'|'indexer_error'|null} [fallbackReason]
  * @returns {string}
  */
 function formatReconcileSourceLine(source, fallbackReason = null) {
   if (source === 'indexer') {
     return '🔎 Источник сверки: indexer API';
+  }
+  if (source === 'journal') {
+    return 'сверка по журналу (цепь не сканировалась; риск ручных tx на операторе)';
   }
   if (fallbackReason === 'indexer_error') {
     return '⚠️ Индексатор не ответил (ключ задан) — сверка через полный скан RPC (медленно)';
@@ -175,8 +178,7 @@ class DailyPaymentsAction {
     const decimals = await capyToken.getDecimals();
     const symbol = await capyToken.getSymbol();
 
-    const { breakdown, owedTotal, reconcileSource, reconcileFallbackReason } =
-      await reconcileDailyPayments({
+    const reconcileParams = {
       capyToken,
       provider,
       parentAddress,
@@ -186,12 +188,25 @@ class DailyPaymentsAction {
       periodDays: period.days,
       logger: this.logger,
       tokenAddress: config.token.address,
-      polygonscanApiKey: config.polygonscanApiKey ?? null,
       polygonscanApiBase: config.polygonscanApiBase,
       polygonscanChainId: config.chainId,
-    });
+      actualSource: config.actualSource,
+      wallet: walletKey,
+      logDir: this.logDir,
+    };
+    if (config.actualSource !== 'journal') {
+      reconcileParams.polygonscanApiKey = config.polygonscanApiKey ?? null;
+    }
 
-    this.logger.info(formatReconcileSourceLine(reconcileSource, reconcileFallbackReason));
+    const { breakdown, owedTotal, reconcileSource, reconcileFallbackReason } =
+      await reconcileDailyPayments(reconcileParams);
+
+    const sourceLine = formatReconcileSourceLine(reconcileSource, reconcileFallbackReason);
+    if (reconcileSource === 'journal') {
+      this.logger.warn(sourceLine);
+    } else {
+      this.logger.info(sourceLine);
+    }
 
     for (const day of breakdown) {
       const expectedDisplay = formatAmountHuman(day.expected, decimals, symbol);
