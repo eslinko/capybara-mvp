@@ -347,7 +347,11 @@ describe('Capybara daily payments (action 2)', () => {
     };
 
     return {
-      config: { ...config, mode: opts.mode ?? 'mock' },
+      config: {
+        ...config,
+        mode: opts.mode ?? 'mock',
+        actualSource: opts.actualSource ?? 'blockscan',
+      },
       logger,
       provider,
       rpcManager: null,
@@ -393,6 +397,36 @@ describe('Capybara daily payments (action 2)', () => {
     const result = await action.execute();
     expect(result.cancelled).to.equal(true);
     expect(router.capyToken.transfer.called).to.equal(false);
+  });
+
+  it('journal mode warns once and does not scan or add a second confirm', async () => {
+    const journalLogger = {
+      section: sinon.stub(),
+      info: sinon.stub(),
+      warn: sinon.stub(),
+    };
+    const router = buildRouterStub({ actualSource: 'journal' });
+    router.logger = journalLogger;
+    router.config.polygonscanApiKey = 'SCANNERKEY12';
+    const confirmFn = sinon.stub().resolves('нет');
+    const action = new DailyPaymentsAction(router, {
+      walletName: 'tristan',
+      todayFn: () => '2026-07-01',
+      logDir: tempLogDir,
+      isTty: true,
+      confirmFn,
+    });
+
+    const result = await action.execute();
+    expect(router.capyToken.queryTransfers.called).to.equal(false);
+    expect(router.provider.getBlock.called).to.equal(false);
+    expect(result.reconcileSource).to.equal('journal');
+    expect(result.cancelled).to.equal(true);
+    expect(confirmFn.calledOnce).to.equal(true);
+    const warnText = journalLogger.warn.getCalls().map((call) => String(call.args[0])).join('\n');
+    expect(warnText).to.include('сверка по журналу (цепь не сканировалась; риск ручных tx на операторе)');
+    const infoText = journalLogger.info.getCalls().map((call) => String(call.args[0])).join('\n');
+    expect(infoText).to.not.include('сверка по журналу');
   });
 
   it('mock mode transfer path appends NDJSON with [MOCK] (AC #11, #12)', async () => {

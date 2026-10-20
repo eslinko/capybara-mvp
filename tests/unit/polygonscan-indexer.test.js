@@ -400,5 +400,8 @@ describe('formatReconcileSourceLine (M1)', () => {
     expect(formatReconcileSourceLine('blockscan', 'indexer_error')).to.match(/ключ задан/i);
     expect(formatReconcileSourceLine('blockscan', 'no_api_key')).to.match(/Indexer API key не задан/i);
     expect(formatReconcileSourceLine('blockscan', 'no_api_key')).to.not.match(/Polygonscan/i);
+    expect(formatReconcileSourceLine('journal')).to.equal(
+      'сверка по журналу (цепь не сканировалась; риск ручных tx на операторе)'
+    );
   });
 });
