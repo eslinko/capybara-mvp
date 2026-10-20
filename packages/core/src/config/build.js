@@ -17,6 +17,7 @@ const REQUIRED_KEYS = [
 const DAILY_RATE_KEYS = ['CAPY_DAILY_TRISTAN', 'CAPY_DAILY_BASTIAN'];
 
 const ALLOWED_CAPY_MODES = new Set(['mock', 'gfl_reality']);
+const ALLOWED_RECONCILE_MODES = new Set(['auto', 'journal', 'blockscan', 'indexer']);
 
 const DEFAULT_POLYGONSCAN_API_BASE = 'https://api.etherscan.io/v2/api';
 const DEFAULT_POLYGONSCAN_CHAIN_ID = 137;
@@ -110,6 +111,31 @@ function resolveCapyMode(env) {
 }
 
 /**
+ * CAPY_RECONCILE (Q1=A). Empty means auto.
+ * @param {NodeJS.ProcessEnv} env
+ * @returns {string}
+ */
+function resolveReconcileMode(env) {
+  return readTrimmedEnv(env, 'CAPY_RECONCILE') || 'auto';
+}
+
+/**
+ * Effective actual source (Q1/Q3=A).
+ * blockscan wins. Otherwise a scanner key (SCANNER_API_KEY, else POLYGONSCAN_API_KEY) → indexer. Else journal.
+ * @param {NodeJS.ProcessEnv} env
+ * @returns {'blockscan'|'indexer'|'journal'}
+ */
+function resolveActualSource(env) {
+  if (resolveReconcileMode(env) === 'blockscan') {
+    return 'blockscan';
+  }
+  if (resolveScannerApiKey(env)) {
+    return 'indexer';
+  }
+  return 'journal';
+}
+
+/**
  * @param {NodeJS.ProcessEnv} env
  * @returns {number|null}
  */
@@ -182,6 +208,11 @@ function validateCapybaraEnv(env) {
     if (!ALLOWED_CAPY_MODES.has(mode)) {
       errors.push('CAPY_MODE must be one of: mock, gfl_reality');
     }
+  }
+
+  const reconcileRaw = readTrimmedEnv(env, 'CAPY_RECONCILE');
+  if (reconcileRaw && !ALLOWED_RECONCILE_MODES.has(reconcileRaw)) {
+    errors.push('CAPY_RECONCILE must be one of: auto, journal, blockscan, indexer');
   }
 
   for (const key of DAILY_RATE_KEYS) {
@@ -350,6 +381,8 @@ function validateNetworkScannerShape(url) {
 function buildConfigFromEnv(env) {
   return {
     mode: resolveCapyMode(env),
+    reconcileMode: resolveReconcileMode(env),
+    actualSource: resolveActualSource(env),
     scannerApiKey: resolveScannerApiKey(env),
     scannerApiBase: resolveScannerApiBase(env),
     polygonscanApiKey: resolveScannerApiKey(env),
@@ -406,7 +439,10 @@ module.exports = {
   REQUIRED_KEYS,
   DAILY_RATE_KEYS,
   ALLOWED_CAPY_MODES,
+  ALLOWED_RECONCILE_MODES,
   resolveCapyMode,
+  resolveReconcileMode,
+  resolveActualSource,
   resolvePolygonscanApiKey,
   resolveScannerApiKey,
   resolvePolygonscanApiBase,
