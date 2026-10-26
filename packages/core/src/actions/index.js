@@ -6,6 +6,7 @@ const ChargeToPoolAction = require('./ChargeToPoolAction');
 const ActivityPayoutAction = require('./ActivityPayoutAction');
 const DeployCapybaraTokenAction = require('./DeployCapybaraTokenAction');
 const MintCapybaraTokenAction = require('./MintCapybaraTokenAction');
+const { DebtLedgerAction } = require('./DebtLedgerAction');
 const {
   loadCapybaraTokenArtifact,
   getDeployerWallet,
@@ -32,6 +33,7 @@ class CapybaraActionsManager {
       [2, () => this.action2DailyPayments()],
       [3, () => this.action3ChargeToPool()],
       [4, () => this.action4ActivityPayout()],
+      [6, () => this.action6DebtLedger()],
       [51, () => this.action51Deploy()],
       [52, () => this.action52Mint()],
     ]);
@@ -119,6 +121,16 @@ class CapybaraActionsManager {
   }
 
   /**
+   * Debt ledger (action 6). Does not transfer tokens.
+   * @returns {Promise<object>}
+   */
+  async action6DebtLedger() {
+    this._warnGflRealityBeforeWrite();
+    const action = new DebtLedgerAction(this.router);
+    return action.execute();
+  }
+
+  /**
    * @param {number} actionNumber
    * @returns {Promise<object>}
    */
@@ -150,6 +162,7 @@ module.exports = {
   ActivityPayoutAction,
   DeployCapybaraTokenAction,
   MintCapybaraTokenAction,
+  DebtLedgerAction,
   GFL_REALITY_BANNER,
   loadCapybaraTokenArtifact,
   getDeployerWallet,

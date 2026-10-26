@@ -31,6 +31,15 @@ async function main() {
     process.exit(1);
   }
 
+  if (action === 6) {
+    const wallet = process.env.CAPYBARA_WALLET;
+    const walletKey = wallet === undefined || wallet === null ? '' : String(wallet).trim().toLowerCase();
+    if (walletKey !== 'tristan' && walletKey !== 'bastian') {
+      logger.error('CAPYBARA_WALLET must be tristan or bastian for action 6');
+      process.exit(1);
+    }
+  }
+
   // Actions 51 and 52 do not use CAPYBARA_WALLET (unlike 1, 2, and 4).
   if (action === 1 || action === 2 || action === 4) {
     const wallet = process.env.CAPYBARA_WALLET;
@@ -57,6 +66,9 @@ async function main() {
       logger.error(error.message);
     } else {
       logger.error('Capybara CLI failed:', error.message);
+    }
+    if (action === 6 && error.code === 'ECANCEL') {
+      process.exit(2);
     }
     process.exit(1);
   }
