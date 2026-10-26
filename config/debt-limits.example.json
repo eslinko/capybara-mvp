@@ -1,0 +1,7 @@
+{
+  "max_outstanding": { "disabled": true },
+  "max_open_debts": 2,
+  "block_on_overdue": true,
+  "gadget_minutes": 60,
+  "children": {}
+}

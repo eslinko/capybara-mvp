@@ -40,6 +40,9 @@ function amountToIntegerString(amount) {
  *   recordedAt?: string,
  *   comment?: string,
  *   operationId?: string,
+ *   override?: boolean,
+ *   overrideReason?: string,
+ *   violatedRules?: string[],
  * }} params
  * @returns {Promise<{ filePath: string, event: Record<string, unknown> }>}
  */
@@ -86,6 +89,15 @@ async function appendDebtEvent(params) {
     }
     if (params.operationId != null) {
       event.operation_id = params.operationId;
+    }
+    if (params.override === true) {
+      const reason = String(params.overrideReason ?? '').trim();
+      if (!reason) {
+        throw new Error('debt override reason is required');
+      }
+      event.override = true;
+      event.override_reason = reason;
+      event.violated_rules = [...(params.violatedRules ?? [])];
     }
 
     const remainderAfter = projectDebtRemainder([...events, event], params.debtId);
