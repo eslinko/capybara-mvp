@@ -9,6 +9,7 @@
  */
 const logger = require('../packages/core/src/lib/infrastructure/Logger');
 const CapybaraRouter = require('../packages/core/src/CapybaraRouter');
+const { exitCodeForDebtError } = require('../packages/core/src/actions/DebtLedgerAction');
 
 async function main() {
   const logLevel = process.env.LOG_LEVEL || (process.env.DEBUG ? 'debug' : 'info');
@@ -67,8 +68,8 @@ async function main() {
     } else {
       logger.error('Capybara CLI failed:', error.message);
     }
-    if (action === 6 && error.code === 'ECANCEL') {
-      process.exit(2);
+    if (action === 6) {
+      process.exit(exitCodeForDebtError(error));
     }
     process.exit(1);
   }

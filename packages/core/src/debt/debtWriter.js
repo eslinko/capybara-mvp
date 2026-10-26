@@ -90,6 +90,9 @@ async function appendDebtEvent(params) {
     if (params.operationId != null) {
       event.operation_id = params.operationId;
     }
+    if (params.txHash != null) {
+      event.tx_hash = String(params.txHash);
+    }
     if (params.override === true) {
       const reason = String(params.overrideReason ?? '').trim();
       if (!reason) {

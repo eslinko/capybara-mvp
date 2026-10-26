@@ -9,6 +9,7 @@ const { checkNewDebt } = require('../debt/debtAvailability');
 const { appendDueChange, projectDue, isDebtOverdue } = require('../debt/debtOverdue');
 const { loadDebtLimitsFile, resolveChildLimits } = require('../debt/debtLimits');
 const { resolveDebtPortion } = require('../debt/debtPortion');
+const { openRepayOperations, findRepayEvent } = require('../debt/debtRepay');
 
 const LEDGER_OPS = Object.freeze([
   'create',
@@ -18,11 +19,14 @@ const LEDGER_OPS = Object.freeze([
   'cancel-fine',
   'summary',
   'show',
+  'repay',
+  'reconcile',
 ]);
 
 const EXIT_SUCCESS = 0;
 const EXIT_VALIDATION = 1;
 const EXIT_CANCEL = 2;
+const EXIT_PENDING = 3;
 const DUE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
@@ -45,12 +49,28 @@ function cancelError() {
 }
 
 /**
- * Success is 0. Cancel is 2. Every other debt failure is validation (1).
+ * @param {string} message
+ * @returns {Error}
+ */
+function pendingError(message) {
+  const error = new Error(message);
+  error.code = 'EDEBT_PENDING';
+  return error;
+}
+
+/**
+ * Success is 0. Confirmed failure is 1. Cancel is 2. Pending reconcile is 3.
  * @param {unknown} error
  * @returns {number}
  */
 function exitCodeForDebtError(error) {
-  return error?.code === 'ECANCEL' ? EXIT_CANCEL : EXIT_VALIDATION;
+  if (error?.code === 'ECANCEL') {
+    return EXIT_CANCEL;
+  }
+  if (error?.code === 'EDEBT_PENDING') {
+    return EXIT_PENDING;
+  }
+  return EXIT_VALIDATION;
 }
 
 /**
@@ -74,6 +94,10 @@ class DebtLedgerAction {
    *   isTty?: boolean,
    *   now?: Date,
    *   env?: NodeJS.ProcessEnv,
+   *   balanceFn?: (child: string) => Promise<bigint>,
+   *   transferFn?: (child: string, pool: string, amount: bigint) => Promise<{ hash: string, wait: () => Promise<{ status?: number, transactionHash?: string }> }>,
+   *   receiptFn?: (txHash: string) => Promise<{ status?: number }|null>,
+   *   afterPending?: () => Promise<void>,
    * }} [options]
    */
   constructor(router, options = {}) {
@@ -84,6 +108,10 @@ class DebtLedgerAction {
     this.isTty = options.isTty;
     this.now = options.now ?? new Date();
     this.env = options.env ?? process.env;
+    this.balanceFn = options.balanceFn;
+    this.transferFn = options.transferFn;
+    this.receiptFn = options.receiptFn;
+    this.afterPending = options.afterPending;
   }
 
   /**
@@ -208,6 +236,8 @@ class DebtLedgerAction {
       due: due.due,
       dueHistory: due.history,
       overdue: isDebtOverdue({ due: due.due, now: this.now, remainder }),
+      pending: openRepayOperations(events, debtId).length > 0,
+      closureHandoff: remainder === 0n,
     };
   }
 
@@ -238,6 +268,12 @@ class DebtLedgerAction {
     }
     if (op === 'fine') {
       return this.fine();
+    }
+    if (op === 'repay') {
+      return this.repay();
+    }
+    if (op === 'reconcile') {
+      return this.reconcile();
     }
     return this.cancelFine();
   }
@@ -394,6 +430,7 @@ class DebtLedgerAction {
     const debtId = this.requireDebtId();
     const reason = this.requireReason();
     const events = await this.eventsFor(child);
+    this.assertNoOpenRepay(events, debtId);
     const remainder = projectDebtRemainder(events, debtId);
     const portion = resolveDebtPortion({
       remainder,
@@ -440,6 +477,7 @@ class DebtLedgerAction {
     if (dueText && !DUE_PATTERN.test(dueText)) {
       throw validationError('CAPYBARA_DEBT_DUE must be YYYY-MM-DD');
     }
+    this.assertNoOpenRepay(await this.eventsFor(child), debtId);
     await this.confirmMutation(
       clearDue ? `Удалить срок ${debtId} (${reason})` : `Срок ${debtId} → ${dueText} (${reason})`
     );
@@ -482,6 +520,7 @@ class DebtLedgerAction {
       throw validationError('CAPYBARA_DEBT_AMOUNT must be a positive integer string');
     }
     const events = await this.eventsFor(child);
+    this.assertNoOpenRepay(events, debtId);
     if (projectDebtRemainder(events, debtId) <= 0n) {
       throw validationError('closed debt cannot be fined');
     }
@@ -520,6 +559,7 @@ class DebtLedgerAction {
       throw validationError('CAPYBARA_DEBT_FINE_ID is required');
     }
     const events = await this.eventsFor(child);
+    this.assertNoOpenRepay(events, debtId);
     const fineIndex = events.findIndex(
       (event) => event.debt_id === debtId && event.type === 'fine' && event.event_id === fineId
     );
@@ -562,6 +602,288 @@ class DebtLedgerAction {
       remainder: written.event.remainder_after,
     };
   }
+
+  /**
+   * @param {Array<Record<string, unknown>>} events
+   * @param {string} debtId
+   * @returns {void}
+   */
+  assertNoOpenRepay(events, debtId) {
+    const open = openRepayOperations(events, debtId);
+    if (open.length > 0) {
+      throw validationError(
+        `pending repay ${open[0].operation_id} blocks this operation until reconcile`
+      );
+    }
+  }
+
+  /**
+   * @param {string} child
+   * @returns {Promise<bigint>}
+   */
+  async balanceOf(child) {
+    if (this.balanceFn) {
+      return this.balanceFn(child);
+    }
+    const address = this.router?.config?.[child]?.address;
+    return this.router.capyToken.getBalance(address);
+  }
+
+  /**
+   * @param {string} child
+   * @param {bigint} amount
+   * @returns {Promise<{ hash: string, wait: () => Promise<{ status?: number }> }>}
+   */
+  async sendTransfer(child, amount) {
+    const pool = this.scope().pool;
+    if (this.transferFn) {
+      return this.transferFn(child, pool, amount);
+    }
+    return this.router.capyToken.transfer(child, pool, amount);
+  }
+
+  /**
+   * @param {string} txHash
+   * @returns {Promise<{ status?: number }|null>}
+   */
+  async readReceipt(txHash) {
+    if (this.receiptFn) {
+      return this.receiptFn(txHash);
+    }
+    const provider = this.router?.capyToken?.provider;
+    if (typeof provider?.getTransactionReceipt !== 'function') {
+      throw validationError('cannot read transfer receipt');
+    }
+    return provider.getTransactionReceipt(txHash);
+  }
+
+  /**
+   * @param {bigint} required
+   * @param {bigint} available
+   * @returns {Error}
+   */
+  insufficientBalance(required, available) {
+    const shortfall = required - available;
+    return validationError(
+      `insufficient balance: required ${required}, available ${available}, shortfall ${shortfall}`
+    );
+  }
+
+  /**
+   * @param {string} child
+   * @param {string} debtId
+   * @param {string} amount
+   * @param {string} operationId
+   * @param {string} type
+   * @param {string} [txHash]
+   * @param {string} [comment]
+   * @returns {Promise<Record<string, unknown>>}
+   */
+  async appendRepay(child, debtId, amount, operationId, type, txHash, comment) {
+    const written = await appendDebtEvent({
+      child,
+      scope: this.scope(),
+      debtRoot: this.debtRoot,
+      mode: this.scope().mode,
+      debtId,
+      type,
+      amount,
+      operationId,
+      txHash,
+      comment,
+    });
+    return written.event;
+  }
+
+  /**
+   * @returns {Promise<object>}
+   */
+  async repay() {
+    const child = this.childName();
+    const debtId = this.requireDebtId();
+    const comment = String(this.env.CAPYBARA_DEBT_REASON ?? '').trim();
+    const events = await this.eventsFor(child);
+    this.assertNoOpenRepay(events, debtId);
+    const remainder = projectDebtRemainder(events, debtId);
+    const portion = resolveDebtPortion({
+      remainder,
+      amount: this.env.CAPYBARA_DEBT_AMOUNT,
+      percent: this.env.CAPYBARA_DEBT_PERCENT,
+      all: String(this.env.CAPYBARA_DEBT_ALL ?? '').trim() === 'true',
+    });
+    const available = await this.balanceOf(child);
+    if (available < portion) {
+      throw this.insufficientBalance(portion, available);
+    }
+    await this.confirmMutation(`Погасить ${portion} по ${debtId} в пул`);
+    const again = await this.eventsFor(child);
+    this.assertNoOpenRepay(again, debtId);
+    const remainderAgain = projectDebtRemainder(again, debtId);
+    if (portion > remainderAgain) {
+      throw validationError(`amount ${portion} exceeds remainder ${remainderAgain}`);
+    }
+    const availableAgain = await this.balanceOf(child);
+    if (availableAgain < portion) {
+      throw this.insufficientBalance(portion, availableAgain);
+    }
+    const operationId = crypto.randomUUID();
+    const amount = portion.toString();
+    await this.appendRepay(child, debtId, amount, operationId, 'repay-intent', undefined, comment || undefined);
+    let txHash;
+    try {
+      const tx = await this.sendTransfer(child, portion);
+      txHash = tx.hash;
+      const receipt = await tx.wait();
+      if (!receipt || receipt.status !== 1) {
+        await this.appendRepay(child, debtId, amount, operationId, 'repay-failed', txHash, comment || undefined);
+        throw validationError('transfer was not confirmed');
+      }
+    } catch (error) {
+      if (error?.code === 'EDEBT_VALIDATION') {
+        throw error;
+      }
+      if (!txHash) {
+        await this.appendRepay(child, debtId, amount, operationId, 'repay-failed', undefined, comment || undefined);
+        throw validationError('transfer did not return a tx hash');
+      }
+      let receipt = null;
+      try {
+        receipt = await this.readReceipt(txHash);
+      } catch (readError) {
+        if (readError?.code === 'EDEBT_VALIDATION') {
+          throw readError;
+        }
+        receipt = null;
+      }
+      if (receipt && receipt.status !== 1) {
+        await this.appendRepay(child, debtId, amount, operationId, 'repay-failed', txHash, comment || undefined);
+        throw validationError('transfer was not confirmed');
+      }
+      await this.appendRepay(child, debtId, amount, operationId, 'repay-pending', txHash, comment || undefined);
+      throw pendingError(`transfer ${txHash} is waiting for reconcile`);
+    }
+    await this.appendRepay(child, debtId, amount, operationId, 'repay-pending', txHash, comment || undefined);
+    if (this.afterPending) {
+      await this.afterPending();
+    }
+    const settled = await this.appendRepay(
+      child,
+      debtId,
+      amount,
+      operationId,
+      'repay-settled',
+      txHash,
+      comment || undefined
+    );
+    return {
+      ok: true,
+      action: 6,
+      op: 'repay',
+      confirmed: true,
+      child,
+      debtId,
+      operationId,
+      txHash,
+      repaid: amount,
+      remainder: settled.remainder_after,
+      closureHandoff: settled.remainder_after === '0',
+    };
+  }
+
+  /**
+   * Finish one original operation. Does not send another transfer.
+   * @returns {Promise<object>}
+   */
+  async reconcile() {
+    const child = this.childName();
+    const debtId = this.requireDebtId();
+    const operationId = String(this.env.CAPYBARA_DEBT_OPERATION_ID ?? '').trim();
+    if (!operationId) {
+      throw validationError('CAPYBARA_DEBT_OPERATION_ID is required');
+    }
+    const events = await this.eventsFor(child);
+    const settled = findRepayEvent(events, operationId, 'repay-settled');
+    if (settled) {
+      return {
+        ok: true,
+        action: 6,
+        op: 'reconcile',
+        confirmed: false,
+        idempotent: true,
+        transferred: false,
+        child,
+        debtId,
+        operationId,
+        txHash: settled.tx_hash ?? null,
+        remainder: settled.remainder_after,
+      };
+    }
+    if (findRepayEvent(events, operationId, 'repay-failed')) {
+      throw validationError(`repay ${operationId} already failed`);
+    }
+    const pending = findRepayEvent(events, operationId, 'repay-pending')
+      ?? findRepayEvent(events, operationId, 'repay-intent');
+    if (!pending) {
+      throw validationError(`repay operation not found: ${operationId}`);
+    }
+    const txHash = typeof pending.tx_hash === 'string' ? pending.tx_hash : '';
+    const amount = String(pending.amounts?.amount ?? '');
+    const comment = typeof pending.comment === 'string' ? pending.comment : undefined;
+    if (!txHash) {
+      await this.confirmMutation(`Закрыть ${operationId} без hash как неуспешное погашение`);
+      await this.appendRepay(child, debtId, amount, operationId, 'repay-failed', undefined, comment);
+      throw validationError(`repay ${operationId} closed as failed without a tx hash`);
+    }
+    const receipt = await this.readReceipt(txHash);
+    if (!receipt) {
+      throw pendingError(`transfer ${txHash} is waiting for reconcile`);
+    }
+    if (receipt.status !== 1) {
+      await this.appendRepay(child, debtId, amount, operationId, 'repay-failed', txHash, comment);
+      throw validationError('transfer was not confirmed');
+    }
+    await this.confirmMutation(`Сверить ${operationId} (${txHash}) без нового перевода`);
+    const fresh = await this.eventsFor(child);
+    const already = findRepayEvent(fresh, operationId, 'repay-settled');
+    if (already) {
+      return {
+        ok: true,
+        action: 6,
+        op: 'reconcile',
+        confirmed: true,
+        idempotent: true,
+        transferred: false,
+        child,
+        debtId,
+        operationId,
+        txHash,
+        remainder: already.remainder_after,
+      };
+    }
+    const written = await this.appendRepay(
+      child,
+      debtId,
+      amount,
+      operationId,
+      'repay-settled',
+      txHash,
+      comment
+    );
+    return {
+      ok: true,
+      action: 6,
+      op: 'reconcile',
+      confirmed: true,
+      idempotent: false,
+      transferred: false,
+      child,
+      debtId,
+      operationId,
+      txHash,
+      remainder: written.remainder_after,
+      closureHandoff: written.remainder_after === '0',
+    };
+  }
 }
 
 module.exports = {
@@ -569,7 +891,9 @@ module.exports = {
   EXIT_SUCCESS,
   EXIT_VALIDATION,
   EXIT_CANCEL,
+  EXIT_PENDING,
   DebtLedgerAction,
   exitCodeForDebtError,
   validationError,
+  pendingError,
 };
