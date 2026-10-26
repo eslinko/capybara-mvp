@@ -78,12 +78,14 @@ async function appendDebtEvent(params) {
         recorded_at: params.recordedAt ?? new Date().toISOString(),
       },
       type: params.type,
-      amounts: {
-        amount: amountToIntegerString(params.amount),
-      },
       remainder_before: remainderBefore.toString(),
       remainder_after: remainderBefore.toString(),
     };
+    if (params.amount != null) {
+      event.amounts = {
+        amount: amountToIntegerString(params.amount),
+      };
+    }
     if (params.comment != null) {
       event.comment = params.comment;
     }
@@ -92,6 +94,21 @@ async function appendDebtEvent(params) {
     }
     if (params.txHash != null) {
       event.tx_hash = String(params.txHash);
+    }
+    if (params.sanctionId != null) {
+      event.sanction_id = String(params.sanctionId);
+    }
+    if (params.sanctionType != null) {
+      event.sanction_type = String(params.sanctionType);
+    }
+    if (params.dates != null) {
+      event.dates = [...params.dates];
+    }
+    if (params.gadgetMinutes != null) {
+      event.gadget_minutes = String(params.gadgetMinutes);
+    }
+    if (params.decisions != null) {
+      event.decisions = params.decisions.map((item) => ({ ...item }));
     }
     if (params.override === true) {
       const reason = String(params.overrideReason ?? '').trim();

@@ -6,10 +6,11 @@ const { getChildDebtPath } = require('../debt/debtPath');
 const { readDebtEvents, projectDebtRemainder } = require('../debt/debtProjection');
 const { appendDebtEvent } = require('../debt/debtWriter');
 const { checkNewDebt } = require('../debt/debtAvailability');
-const { appendDueChange, projectDue, isDebtOverdue } = require('../debt/debtOverdue');
+const { appendDueChange, projectDue, isDebtOverdue, tallinnCalendarDate } = require('../debt/debtOverdue');
 const { loadDebtLimitsFile, resolveChildLimits } = require('../debt/debtLimits');
 const { resolveDebtPortion } = require('../debt/debtPortion');
 const { openRepayOperations, findRepayEvent } = require('../debt/debtRepay');
+const { activeSanctions, unresolvedSanctions, hasManualBlock, mergedGadgets, parseDecisionList, SANCTION_TYPES } = require('../debt/debtSanctions');
 
 const LEDGER_OPS = Object.freeze([
   'create',
@@ -21,6 +22,9 @@ const LEDGER_OPS = Object.freeze([
   'show',
   'repay',
   'reconcile',
+  'sanction-add',
+  'sanction-cancel',
+  'resolve-closure',
 ]);
 
 const EXIT_SUCCESS = 0;
@@ -82,7 +86,7 @@ function hasText(raw) {
 }
 
 /**
- * CLI action 6 ledger ops. Does not transfer tokens and does not assign sanctions.
+ * CLI action 6 ledger ops. Sanction rows do not control a device and do not change the remainder.
  */
 class DebtLedgerAction {
   /**
@@ -238,6 +242,13 @@ class DebtLedgerAction {
       overdue: isDebtOverdue({ due: due.due, now: this.now, remainder }),
       pending: openRepayOperations(events, debtId).length > 0,
       closureHandoff: remainder === 0n,
+      pendingResolve: remainder === 0n && unresolvedSanctions(events, debtId).length > 0,
+      sanctions: activeSanctions(events, debtId).map((event) => ({
+        sanctionId: event.sanction_id,
+        type: event.sanction_type,
+        reason: event.comment ?? '',
+        dates: event.dates ?? [],
+      })),
     };
   }
 
@@ -275,6 +286,15 @@ class DebtLedgerAction {
     if (op === 'reconcile') {
       return this.reconcile();
     }
+    if (op === 'sanction-add') {
+      return this.sanctionAdd();
+    }
+    if (op === 'sanction-cancel') {
+      return this.sanctionCancel();
+    }
+    if (op === 'resolve-closure') {
+      return this.resolveClosure();
+    }
     return this.cancelFine();
   }
 
@@ -294,6 +314,9 @@ class DebtLedgerAction {
     }
     const debts = ids.map((debtId) => this.cardFor(events, debtId));
     const outstanding = debts.reduce((sum, card) => sum + BigInt(card.remainder), 0n);
+    const loaded = await loadDebtLimitsFile(this.limitsPath);
+    const limits = resolveChildLimits(loaded, child, this.env);
+    const gadgets = mergedGadgets(events, tallinnCalendarDate(this.now), limits.gadgetMinutes.toString());
     return {
       ok: true,
       action: 6,
@@ -302,6 +325,9 @@ class DebtLedgerAction {
       child,
       outstanding: outstanding.toString(),
       debts,
+      gadgets: gadgets.current,
+      gadgetHistory: gadgets.history,
+      unresolvedClosures: debts.filter((card) => card.pendingResolve).map((card) => card.debtId),
     };
   }
 
@@ -351,6 +377,7 @@ class DebtLedgerAction {
     }
     const loaded = await loadDebtLimitsFile(this.limitsPath);
     const limits = resolveChildLimits(loaded, child, this.env);
+    const manualBlock = hasManualBlock(await this.eventsFor(child));
     const preview = await checkNewDebt({
       child,
       scope: this.scope(),
@@ -360,6 +387,7 @@ class DebtLedgerAction {
       newDebtId: debtId,
       newAmount: amountText,
       now: this.now,
+      manualBlock,
     });
     const overrideReason = String(this.env.CAPYBARA_DEBT_OVERRIDE_REASON ?? '').trim();
     if (!preview.allowed && !overrideReason) {
@@ -380,6 +408,7 @@ class DebtLedgerAction {
       newDebtId: debtId,
       newAmount: amountText,
       now: this.now,
+      manualBlock: hasManualBlock(await this.eventsFor(child)),
     });
     const useOverride = !again.allowed;
     if (useOverride && !overrideReason) {
@@ -438,7 +467,12 @@ class DebtLedgerAction {
       percent: this.env.CAPYBARA_DEBT_PERCENT,
       all: String(this.env.CAPYBARA_DEBT_ALL ?? '').trim() === 'true',
     });
-    await this.confirmMutation(`Простить ${portion} по ${debtId} (${reason})`);
+    const closing = portion === remainder;
+    if (closing) {
+      await this.confirmClose(`Простить ${portion} по ${debtId} (${reason})`, events, debtId);
+    } else {
+      await this.confirmMutation(`Простить ${portion} по ${debtId} (${reason})`);
+    }
     const written = await appendDebtEvent({
       child,
       scope: this.scope(),
@@ -449,6 +483,9 @@ class DebtLedgerAction {
       amount: portion.toString(),
       comment: reason,
     });
+    const resolution = closing
+      ? await this.finishSanctionDialog(child, debtId)
+      : { pendingResolve: false };
     return {
       ok: true,
       action: 6,
@@ -459,6 +496,7 @@ class DebtLedgerAction {
       forgiven: portion.toString(),
       remainder: written.event.remainder_after,
       onChainBalanceChanged: false,
+      pendingResolve: resolution.pendingResolve,
     };
   }
 
@@ -715,7 +753,12 @@ class DebtLedgerAction {
     if (available < portion) {
       throw this.insufficientBalance(portion, available);
     }
-    await this.confirmMutation(`Погасить ${portion} по ${debtId} в пул`);
+    const closing = portion === remainder;
+    if (closing) {
+      await this.confirmClose(`Погасить ${portion} по ${debtId} в пул`, events, debtId);
+    } else {
+      await this.confirmMutation(`Погасить ${portion} по ${debtId} в пул`);
+    }
     const again = await this.eventsFor(child);
     this.assertNoOpenRepay(again, debtId);
     const remainderAgain = projectDebtRemainder(again, debtId);
@@ -775,6 +818,9 @@ class DebtLedgerAction {
       txHash,
       comment || undefined
     );
+    const resolution = settled.remainder_after === '0'
+      ? await this.finishSanctionDialog(child, debtId)
+      : { pendingResolve: false };
     return {
       ok: true,
       action: 6,
@@ -787,6 +833,7 @@ class DebtLedgerAction {
       repaid: amount,
       remainder: settled.remainder_after,
       closureHandoff: settled.remainder_after === '0',
+      pendingResolve: resolution.pendingResolve,
     };
   }
 
@@ -842,7 +889,12 @@ class DebtLedgerAction {
       await this.appendRepay(child, debtId, amount, operationId, 'repay-failed', txHash, comment);
       throw validationError('transfer was not confirmed');
     }
-    await this.confirmMutation(`Сверить ${operationId} (${txHash}) без нового перевода`);
+    const closing = BigInt(amount || '0') === projectDebtRemainder(events, debtId);
+    if (closing) {
+      await this.confirmClose(`Сверить ${operationId} (${txHash}) без нового перевода`, events, debtId);
+    } else {
+      await this.confirmMutation(`Сверить ${operationId} (${txHash}) без нового перевода`);
+    }
     const fresh = await this.eventsFor(child);
     const already = findRepayEvent(fresh, operationId, 'repay-settled');
     if (already) {
@@ -869,6 +921,9 @@ class DebtLedgerAction {
       txHash,
       comment
     );
+    const resolution = written.remainder_after === '0'
+      ? await this.finishSanctionDialog(child, debtId)
+      : { pendingResolve: false };
     return {
       ok: true,
       action: 6,
@@ -882,6 +937,300 @@ class DebtLedgerAction {
       txHash,
       remainder: written.remainder_after,
       closureHandoff: written.remainder_after === '0',
+      pendingResolve: resolution.pendingResolve,
+    };
+  }
+
+  /**
+   * @param {string} preview
+   * @param {Array<Record<string, unknown>>} events
+   * @param {string} debtId
+   * @returns {Promise<void>}
+   */
+  async confirmClose(preview, events, debtId) {
+    const active = unresolvedSanctions(events, debtId);
+    if (active.length > 0) {
+      this.assertDecisionList(active);
+    }
+    if (this.isTty === false && active.length > 0) {
+      return;
+    }
+    await this.confirmMutation(preview);
+  }
+
+  /**
+   * @returns {Array<{ sanction_id: string, decision: string }>|null}
+   */
+  explicitDecisions() {
+    return parseDecisionList(this.env.CAPYBARA_DEBT_DECISIONS);
+  }
+
+  /**
+   * @param {Array<Record<string, unknown>>} active
+   * @returns {Array<{ sanction_id: string, decision: string }>|null}
+   */
+  assertDecisionList(active) {
+    const decisions = this.explicitDecisions();
+    if (this.isTty === false && !decisions) {
+      throw validationError('explicit sanction decisions are required before close');
+    }
+    if (!decisions) {
+      return null;
+    }
+    const expected = new Set(active.map((event) => event.sanction_id));
+    const seen = new Set();
+    for (const item of decisions) {
+      if (!item.sanction_id || (item.decision !== 'leave' && item.decision !== 'cancel')) {
+        throw validationError('sanction decision must be sanction_id:leave or sanction_id:cancel');
+      }
+      if (!expected.has(item.sanction_id)) {
+        throw validationError(`sanction ${item.sanction_id} is not an active sanction of this debt`);
+      }
+      if (seen.has(item.sanction_id)) {
+        throw validationError(`duplicate decision for ${item.sanction_id}`);
+      }
+      seen.add(item.sanction_id);
+    }
+    if (seen.size !== expected.size) {
+      throw validationError('every active sanction needs a leave or cancel decision');
+    }
+    if (decisions.some((item) => item.decision === 'cancel') && !this.cancelReason()) {
+      throw validationError('a cancel reason is required');
+    }
+    return decisions;
+  }
+
+  /**
+   * @returns {string}
+   */
+  cancelReason() {
+    return String(this.env.CAPYBARA_DEBT_CANCEL_REASON ?? this.env.CAPYBARA_DEBT_REASON ?? '').trim();
+  }
+
+  /**
+   * @param {string} child
+   * @param {string} debtId
+   * @returns {Promise<{ pendingResolve: boolean }>}
+   */
+  async finishSanctionDialog(child, debtId) {
+    const events = await this.eventsFor(child);
+    const active = unresolvedSanctions(events, debtId);
+    if (active.length === 0) {
+      return { pendingResolve: false };
+    }
+    const prepared = this.assertDecisionList(active);
+    if (prepared) {
+      await this.writeClosure(child, debtId, prepared);
+      return { pendingResolve: false };
+    }
+    try {
+      await this.confirmMutation(`Решить санкции по ${debtId} сейчас`);
+    } catch (error) {
+      if (error?.code === 'ECANCEL') {
+        return { pendingResolve: true };
+      }
+      throw error;
+    }
+    /** @type {Array<{ sanction_id: string, decision: string }>} */
+    const chosen = [];
+    for (const sanction of active) {
+      let decision = 'leave';
+      try {
+        await this.confirmMutation(
+          `Отменить санкцию ${sanction.sanction_id}? да отменяет, нет оставляет`
+        );
+        decision = 'cancel';
+      } catch (error) {
+        if (error?.code !== 'ECANCEL') {
+          throw error;
+        }
+      }
+      chosen.push({ sanction_id: sanction.sanction_id, decision });
+    }
+    if (chosen.some((item) => item.decision === 'cancel') && !this.cancelReason()) {
+      return { pendingResolve: true };
+    }
+    await this.writeClosure(child, debtId, chosen);
+    return { pendingResolve: false };
+  }
+
+  /**
+   * @param {string} child
+   * @param {string} debtId
+   * @param {Array<{ sanction_id: string, decision: string }>} decisions
+   * @returns {Promise<void>}
+   */
+  async writeClosure(child, debtId, decisions) {
+    const reason = this.cancelReason();
+    await appendDebtEvent({
+      child,
+      scope: this.scope(),
+      debtRoot: this.debtRoot,
+      mode: this.scope().mode,
+      debtId,
+      type: 'closure-resolve',
+      comment: reason || undefined,
+      decisions,
+    });
+    for (const item of decisions) {
+      if (item.decision !== 'cancel') {
+        continue;
+      }
+      await appendDebtEvent({
+        child,
+        scope: this.scope(),
+        debtRoot: this.debtRoot,
+        mode: this.scope().mode,
+        debtId,
+        type: 'sanction-cancel',
+        sanctionId: item.sanction_id,
+        comment: reason,
+      });
+    }
+  }
+
+  /**
+   * @param {string} raw
+   * @returns {string[]}
+   */
+  parseDates(raw) {
+    const dates = String(raw ?? '').split(',').map((part) => part.trim()).filter(Boolean);
+    const unique = [];
+    for (const date of dates) {
+      if (!DUE_PATTERN.test(date)) {
+        throw validationError('CAPYBARA_DEBT_DATES must be YYYY-MM-DD');
+      }
+      if (!unique.includes(date)) {
+        unique.push(date);
+      }
+    }
+    return unique;
+  }
+
+  /**
+   * @returns {Promise<object>}
+   */
+  async sanctionAdd() {
+    const child = this.childName();
+    const debtId = this.requireDebtId();
+    const reason = this.requireReason();
+    const sanctionType = String(this.env.CAPYBARA_DEBT_SANCTION_TYPE ?? '').trim();
+    if (!SANCTION_TYPES.has(sanctionType)) {
+      throw validationError('CAPYBARA_DEBT_SANCTION_TYPE must be gadget or block-new-debts');
+    }
+    const dates = sanctionType === 'gadget'
+      ? this.parseDates(this.env.CAPYBARA_DEBT_DATES)
+      : [];
+    if (sanctionType === 'gadget' && dates.length === 0) {
+      throw validationError('a gadget sanction needs at least one date');
+    }
+    const events = await this.eventsFor(child);
+    if (!events.some((event) => event.debt_id === debtId)) {
+      throw validationError(`debt_id not found: ${debtId}`);
+    }
+    const loaded = await loadDebtLimitsFile(this.limitsPath);
+    const limits = resolveChildLimits(loaded, child, this.env);
+    const sanctionId = String(this.env.CAPYBARA_DEBT_SANCTION_ID ?? '').trim() || crypto.randomUUID();
+    await this.confirmMutation(`Назначить ${sanctionType} ${sanctionId} по ${debtId} (${reason})`);
+    const written = await appendDebtEvent({
+      child,
+      scope: this.scope(),
+      debtRoot: this.debtRoot,
+      mode: this.scope().mode,
+      debtId,
+      type: 'sanction-add',
+      comment: reason,
+      sanctionId,
+      sanctionType,
+      dates: sanctionType === 'gadget' ? dates : undefined,
+      gadgetMinutes: sanctionType === 'gadget' ? limits.gadgetMinutes.toString() : undefined,
+    });
+    return {
+      ok: true,
+      action: 6,
+      op: 'sanction-add',
+      confirmed: true,
+      child,
+      debtId,
+      sanctionId,
+      remainder: written.event.remainder_after,
+    };
+  }
+
+  /**
+   * @returns {Promise<object>}
+   */
+  async sanctionCancel() {
+    const child = this.childName();
+    const reason = this.requireReason();
+    const sanctionId = String(this.env.CAPYBARA_DEBT_SANCTION_ID ?? '').trim();
+    if (!sanctionId) {
+      throw validationError('CAPYBARA_DEBT_SANCTION_ID is required');
+    }
+    const events = await this.eventsFor(child);
+    const sanction = activeSanctions(events).find((event) => event.sanction_id === sanctionId);
+    if (!sanction) {
+      throw validationError(`active sanction not found: ${sanctionId}`);
+    }
+    await this.confirmMutation(`Снять санкцию ${sanctionId} (${reason})`);
+    const written = await appendDebtEvent({
+      child,
+      scope: this.scope(),
+      debtRoot: this.debtRoot,
+      mode: this.scope().mode,
+      debtId: String(sanction.debt_id),
+      type: 'sanction-cancel',
+      sanctionId,
+      comment: reason,
+    });
+    return {
+      ok: true,
+      action: 6,
+      op: 'sanction-cancel',
+      confirmed: true,
+      child,
+      debtId: sanction.debt_id,
+      sanctionId,
+      remainder: written.event.remainder_after,
+    };
+  }
+
+  /**
+   * @returns {Promise<object>}
+   */
+  async resolveClosure() {
+    const child = this.childName();
+    const debtId = this.requireDebtId();
+    const events = await this.eventsFor(child);
+    const active = unresolvedSanctions(events, debtId);
+    if (active.length === 0) {
+      return {
+        ok: true,
+        action: 6,
+        op: 'resolve-closure',
+        confirmed: false,
+        idempotent: true,
+        child,
+        debtId,
+        pendingResolve: false,
+      };
+    }
+    const decisions = this.assertDecisionList(active);
+    if (!decisions) {
+      throw validationError('CAPYBARA_DEBT_DECISIONS is required');
+    }
+    if (this.isTty !== false) {
+      await this.confirmMutation(`Записать решения по санкциям ${debtId}`);
+    }
+    await this.writeClosure(child, debtId, decisions);
+    return {
+      ok: true,
+      action: 6,
+      op: 'resolve-closure',
+      confirmed: true,
+      child,
+      debtId,
+      pendingResolve: false,
     };
   }
 }
