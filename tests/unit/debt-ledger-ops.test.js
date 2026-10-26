@@ -96,7 +96,7 @@ describe('debt ledger action 6', () => {
     const manager = new CapybaraActionsManager(router());
     expect(manager.getAvailableActions()).to.include(6);
     const previous = process.env.CAPYBARA_DEBT_OP;
-    process.env.CAPYBARA_DEBT_OP = 'sanction-add';
+    process.env.CAPYBARA_DEBT_OP = 'device-lock';
     try {
       await manager.executeAction(6);
       expect.fail('should throw');
