@@ -150,6 +150,10 @@ parent-ключ нужен для выплат в action 2). Неизвестн�
 Подтверждение — TTY да/нет (по каждому ребёнку при `all`), mock-gate уважается. Журнал: строки
 `type:'charge'` через `appendTypedLedgerEntry` (см. [LOGGING.md](LOGGING.md)).
 
+### Action 6 — журнал долга
+
+Отдельный NDJSON обязательств, не журнал выплат. Контракт и подоперации: [docs/architecture/01-child-debt-accounting/](architecture/01-child-debt-accounting/00-overview.md). Путь файла — [debtPath.js](../packages/core/src/debt/debtPath.js): `logs/capybara/debt/` для `gfl_reality` и `logs/capybara/debt/mock/` для остальных режимов, дальше `mode--chainId--token--pool/<ребёнок>.ndjson`. Погашение идёт через `CapyToken` в пул родителя и в mock не вызывает `contract.transfer`. Действия 2 и 3 этот журнал не пишут.
+
 ### Ретрофит Action 1 → журнал
 Action 1 (sweep) после успешного перевода пишет строку `type:'sweep'` в тот же журнал
 ([SweepToParentAction.js:311-330](../../packages/core/src/actions/SweepToParentAction.js#L311)) — единая
@@ -206,7 +210,8 @@ capybara/
     config/  ProviderFactory.js  WalletRegistry.js  CapyToken.js
     CapybaraRouter.js  runtimeContext.js
     actions/  charge-pool/  indexer/  daily-payments/
-  logs/capybara/                  # NDJSON SSOT (бой + mock/)
+  logs/capybara/                  # NDJSON выплат (бой + mock/)
+  logs/capybara/debt/             # NDJSON долга (бой + mock/), действие 6
   tests/unit/*.test.js            # оффлайн-тесты
   docs/capybara/                  # USER-MANUAL, ARCHITECTURE, LOGGING
 scripts/

@@ -361,6 +361,119 @@ node capybara/cli/capybara.js
 
 ---
 
+### 📒 Действие 6 — Журнал долга ребёнка
+
+Отдельный журнал обязательств. Это не действие 2 и не действие 3: выплата и списание в пул сами по себе долг не закрывают. Кошелёк только `tristan` или `bastian`. Мутации спрашивают подтверждение в живом терминале. `summary` и `show` подтверждения не требуют.
+
+`CAPY_MODE=mock` не отправляет живой transfer: `CapyToken` пишет `[MOCK] would transfer` и возвращает синтетический hash. Запись долга в mock лежит под `logs/capybara/debt/mock/` и не меняет боевой файл.
+
+**Частичное погашение** (перевод в пул только на указанную сумму; остаток долга уменьшается после подтверждённого receipt):
+
+```bash
+CAPY_MODE=mock CAPYBARA_ACTION=6 CAPYBARA_WALLET=tristan \
+CAPYBARA_DEBT_OP=repay CAPYBARA_DEBT_ID=debt-1 CAPYBARA_DEBT_AMOUNT=10 \
+node capybara/cli/capybara.js
+```
+
+**Частичное прощение** (баланс токена не меняется, причина обязательна):
+
+```bash
+CAPY_MODE=mock CAPYBARA_ACTION=6 CAPYBARA_WALLET=tristan \
+CAPYBARA_DEBT_OP=forgive CAPYBARA_DEBT_ID=debt-1 CAPYBARA_DEBT_AMOUNT=10 \
+CAPYBARA_DEBT_REASON=family \
+node capybara/cli/capybara.js
+```
+
+**Санкция** (строка журнала, устройство не управляется). Для `gadget` нужен список дат:
+
+```bash
+CAPY_MODE=mock CAPYBARA_ACTION=6 CAPYBARA_WALLET=tristan \
+CAPYBARA_DEBT_OP=sanction-add CAPYBARA_DEBT_ID=debt-1 \
+CAPYBARA_DEBT_SANCTION_TYPE=gadget CAPYBARA_DEBT_DATES=2026-11-01 \
+CAPYBARA_DEBT_REASON=late \
+node capybara/cli/capybara.js
+```
+
+**Сверка** уже отправленного погашения. Новый transfer не создаётся. Нужен `CAPYBARA_DEBT_OPERATION_ID` исходной операции:
+
+```bash
+CAPY_MODE=mock CAPYBARA_ACTION=6 CAPYBARA_WALLET=tristan \
+CAPYBARA_DEBT_OP=reconcile CAPYBARA_DEBT_OPERATION_ID=op-1 \
+node capybara/cli/capybara.js
+```
+
+**Создать долг** (только журнал, баланс токена не меняется):
+
+```bash
+CAPY_MODE=mock CAPYBARA_ACTION=6 CAPYBARA_WALLET=tristan \
+CAPYBARA_DEBT_OP=create CAPYBARA_DEBT_ID=debt-1 CAPYBARA_DEBT_AMOUNT=20 \
+CAPYBARA_DEBT_REASON=loan \
+node capybara/cli/capybara.js
+```
+
+**Поставить срок:**
+
+```bash
+CAPY_MODE=mock CAPYBARA_ACTION=6 CAPYBARA_WALLET=tristan \
+CAPYBARA_DEBT_OP=set-due CAPYBARA_DEBT_ID=debt-1 CAPYBARA_DEBT_DUE=2026-11-01 \
+CAPYBARA_DEBT_REASON=agreed \
+node capybara/cli/capybara.js
+```
+
+**Штраф** (сумма целой строкой, причина обязательна):
+
+```bash
+CAPY_MODE=mock CAPYBARA_ACTION=6 CAPYBARA_WALLET=tristan \
+CAPYBARA_DEBT_OP=fine CAPYBARA_DEBT_ID=debt-1 CAPYBARA_DEBT_AMOUNT=5 \
+CAPYBARA_DEBT_REASON=late \
+node capybara/cli/capybara.js
+```
+
+**Отмена штрафа** (`CAPYBARA_DEBT_FINE_ID` — `event_id` строки `fine`):
+
+```bash
+CAPY_MODE=mock CAPYBARA_ACTION=6 CAPYBARA_WALLET=tristan \
+CAPYBARA_DEBT_OP=cancel-fine CAPYBARA_DEBT_ID=debt-1 CAPYBARA_DEBT_FINE_ID=fine-1 \
+CAPYBARA_DEBT_REASON=mistake \
+node capybara/cli/capybara.js
+```
+
+**Снять санкцию:**
+
+```bash
+CAPY_MODE=mock CAPYBARA_ACTION=6 CAPYBARA_WALLET=tristan \
+CAPYBARA_DEBT_OP=sanction-cancel CAPYBARA_DEBT_SANCTION_ID=san-1 \
+CAPYBARA_DEBT_REASON=done \
+node capybara/cli/capybara.js
+```
+
+**Решения по санкциям закрытого долга** (`leave` оставляет, `cancel` снимает; штраф не входит в список):
+
+```bash
+CAPY_MODE=mock CAPYBARA_ACTION=6 CAPYBARA_WALLET=tristan \
+CAPYBARA_DEBT_OP=resolve-closure CAPYBARA_DEBT_ID=debt-1 \
+CAPYBARA_DEBT_DECISIONS=san-1:leave \
+node capybara/cli/capybara.js
+```
+
+**Сводка и карточка** (без подтверждения):
+
+```bash
+CAPY_MODE=mock CAPYBARA_ACTION=6 CAPYBARA_WALLET=tristan \
+CAPYBARA_DEBT_OP=summary \
+node capybara/cli/capybara.js
+```
+
+```bash
+CAPY_MODE=mock CAPYBARA_ACTION=6 CAPYBARA_WALLET=tristan \
+CAPYBARA_DEBT_OP=show CAPYBARA_DEBT_ID=debt-1 \
+node capybara/cli/capybara.js
+```
+
+Сумма, процент и `CAPYBARA_DEBT_ALL=true` взаимоисключающие. Закрытие долга с активными санкциями без TTY требует `CAPYBARA_DEBT_DECISIONS` до перевода. Полный список подопераций — в `capybara/.env.example`.
+
+---
+
 ### 🚀 Действие 51 — Задеплоить контракт $CAPY
 
 Деплой `CapybaraToken` с кошелька deployer. `CAPY_TOKEN_ADDRESS` для этого действия **не** нужен: адреса ещё нет. Нужны `DEPLOYER_ADDRESS` и `DEPLOYER_PRIVATE_KEY`.
@@ -402,7 +515,7 @@ CAPY_MODE=gfl_reality CAPYBARA_ACTION=52 CAPYBARA_AMOUNT=1 CAPYBARA_TO=0x… nod
 журнал; тестовые (mock) записи лежат отдельно в `capybara/logs/capybara/mock/<кошелёк>.ndjson`. Папки
 создаются сами. Одна строка — одна запись; поле `type` показывает вид: `day`/`payment` (действие 2),
 `sweep` (действие 1), `charge` (действие 3), `activity_validated`/`payout` (действие 4),
-`token_deployed` (действие 51), `token_minted` (действие 52). Файл 51/52 назван адресом deployer. Из боевого журнала берётся «последняя выплата», когда в
+`token_deployed` (действие 51), `token_minted` (действие 52). Файл 51/52 назван адресом deployer. Журнал долга (действие 6) лежит отдельно: `capybara/logs/capybara/debt/<scope>/<ребёнок>.ndjson`, mock — в `capybara/logs/capybara/debt/mock/`. Из боевого журнала выплат берётся «последняя выплата», когда в
 действии 2 не задан `CAPYBARA_FROM` (учитываются только строки `day`).
 
 Посмотреть:

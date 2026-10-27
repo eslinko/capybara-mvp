@@ -29,6 +29,15 @@
 - **Боевые и тестовые записи разделены** — mock-прогоны не пачкают боевой журнал
   ([ndjsonLogReader.js:30-32](../../packages/core/src/daily-payments/ndjsonLogReader.js#L30)).
 
+Журнал долга (действие 6) — другой каталог, не `<кошелёк>.ndjson` выплат:
+
+| Режим | Папка | Пример файла |
+|-------|-------|--------------|
+| 🔴 боевой (`CAPY_MODE=gfl_reality`) | `capybara/logs/capybara/debt/<scope>/` | `capybara/logs/capybara/debt/gfl_reality--<chain>--<token>--<pool>/tristan.ndjson` |
+| 🧪 тест (`mock` и любой режим кроме `gfl_reality`) | `capybara/logs/capybara/debt/mock/<scope>/` | `capybara/logs/capybara/debt/mock/mock--<chain>--<token>--<pool>/tristan.ndjson` |
+
+`<scope>` — `mode--chainId--token--pool` ([debtPath.js](../packages/core/src/debt/debtPath.js)). Смена сети, токена, пула или кошелька открывает другой файл. Строка `charge` / `payment` в журнале выплат долг не уменьшает.
+
 ## 1.3 Формат: NDJSON
 
 **NDJSON** = «одна строка — один JSON-объект». Файл читается построчно; каждая строка —
