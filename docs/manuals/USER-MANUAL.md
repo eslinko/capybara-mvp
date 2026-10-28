@@ -367,11 +367,13 @@ node capybara/cli/capybara.js
 
 `CAPY_MODE=mock` не отправляет живой transfer: `CapyToken` пишет `[MOCK] would transfer` и возвращает синтетический hash. Запись долга в mock лежит под `logs/capybara/debt/mock/` и не меняет боевой файл.
 
+`CAPYBARA_DEBT_AMOUNT` — человеческая сумма (`5` или `5.555`) с числом знаков не больше decimals токена. Журнал хранит целое raw и `amount_unit: token_raw`. Старый журнал без этой метки один раз умножается на `10^decimals`.
+
 **Частичное погашение** (перевод в пул только на указанную сумму; остаток долга уменьшается после подтверждённого receipt):
 
 ```bash
 CAPY_MODE=mock CAPYBARA_ACTION=6 CAPYBARA_WALLET=tristan \
-CAPYBARA_DEBT_OP=repay CAPYBARA_DEBT_ID=debt-1 CAPYBARA_DEBT_AMOUNT=10 \
+CAPYBARA_DEBT_OP=repay CAPYBARA_DEBT_ID=debt-1 CAPYBARA_DEBT_AMOUNT=5.555 \
 node capybara/cli/capybara.js
 ```
 
@@ -420,7 +422,7 @@ CAPYBARA_DEBT_REASON=agreed \
 node capybara/cli/capybara.js
 ```
 
-**Штраф** (сумма целой строкой, причина обязательна):
+**Штраф** (человеческая сумма, например `5` или `5.555`; причина обязательна):
 
 ```bash
 CAPY_MODE=mock CAPYBARA_ACTION=6 CAPYBARA_WALLET=tristan \
