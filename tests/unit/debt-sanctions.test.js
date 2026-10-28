@@ -78,6 +78,7 @@ describe('debt sanctions and closure', () => {
       confirmFn: options.confirmFn ?? yes,
       isTty: options.isTty ?? true,
       now: new Date('2026-10-26T12:00:00.000Z'),
+      decimals: 0,
       env,
       balanceFn: async () => balance,
       transferFn: async (_child, pool, amount) => {

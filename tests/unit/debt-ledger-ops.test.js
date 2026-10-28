@@ -79,6 +79,7 @@ describe('debt ledger action 6', () => {
       confirmFn: options.confirmFn ?? yes,
       isTty: options.isTty ?? true,
       now: NOW,
+      decimals: 0,
       env,
     });
   }

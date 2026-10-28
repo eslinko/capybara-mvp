@@ -92,6 +92,7 @@ describe('debt scope isolation and action 2/3 regression', () => {
       confirmFn: yes,
       isTty: true,
       now: new Date('2026-10-26T12:00:00.000Z'),
+      decimals: options.decimals ?? 0,
       env,
       balanceFn: options.balanceFn,
       transferFn: options.transferFn,

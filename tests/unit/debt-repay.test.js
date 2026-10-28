@@ -80,6 +80,7 @@ describe('debt repay and reconcile', () => {
       confirmFn: yes,
       isTty: true,
       now: new Date('2026-10-26T22:00:00.000Z'),
+      decimals: 0,
       env,
       balanceFn: async () => balance,
       transferFn: options.transferFn ?? (async (_child, pool, amount) => {
