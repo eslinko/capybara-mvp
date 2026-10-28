@@ -7,8 +7,10 @@ const { readDebtEvents, projectDebtRemainder } = require('../debt/debtProjection
 const { appendDebtEvent } = require('../debt/debtWriter');
 const { checkNewDebt } = require('../debt/debtAvailability');
 const { appendDueChange, projectDue, isDebtOverdue, tallinnCalendarDate } = require('../debt/debtOverdue');
-const { loadDebtLimitsFile, resolveChildLimits } = require('../debt/debtLimits');
+const { loadDebtLimitsFile, resolveChildLimits, scaleOutstandingToRaw } = require('../debt/debtLimits');
 const { resolveDebtPortion } = require('../debt/debtPortion');
+const { parseHumanToRaw, formatRawAmount } = require('../debt/debtAmount');
+const { migrateHumanWholeJournal } = require('../debt/debtMigrate');
 const { openRepayOperations, findRepayEvent } = require('../debt/debtRepay');
 const { activeSanctions, unresolvedSanctions, hasManualBlock, mergedGadgets, parseDecisionList, SANCTION_TYPES } = require('../debt/debtSanctions');
 
@@ -116,6 +118,7 @@ class DebtLedgerAction {
     this.transferFn = options.transferFn;
     this.receiptFn = options.receiptFn;
     this.afterPending = options.afterPending;
+    this.decimals = options.decimals ?? null;
   }
 
   /**
@@ -140,6 +143,71 @@ class DebtLedgerAction {
       throw validationError('CAPYBARA_WALLET must be tristan or bastian for action 6');
     }
     return wallet;
+  }
+
+  /**
+   * @returns {Promise<number>}
+   */
+  async tokenDecimals() {
+    if (this.decimals != null) {
+      return this.decimals;
+    }
+    const token = this.router?.capyToken;
+    if (typeof token?.getDecimals === 'function') {
+      this.decimals = Number(await token.getDecimals());
+      return this.decimals;
+    }
+    throw validationError('token decimals are required for a debt amount');
+  }
+
+  /**
+   * @param {string} child
+   * @returns {Promise<void>}
+   */
+  async prepareJournal(child) {
+    const filePath = getChildDebtPath({
+      child,
+      scope: this.scope(),
+      debtRoot: this.debtRoot,
+      mode: this.scope().mode,
+    });
+    await migrateHumanWholeJournal(filePath, await this.tokenDecimals());
+  }
+
+  /**
+   * @returns {Promise<bigint|undefined>}
+   */
+  async optionalHumanRaw() {
+    const text = String(this.env.CAPYBARA_DEBT_AMOUNT ?? '').trim();
+    if (!text) {
+      return undefined;
+    }
+    return parseHumanToRaw(text, await this.tokenDecimals());
+  }
+
+  /**
+   * @param {bigint} remainder
+   * @returns {Promise<bigint>}
+   */
+  async portionFrom(remainder) {
+    return resolveDebtPortion({
+      remainder,
+      amount: await this.optionalHumanRaw(),
+      percent: this.env.CAPYBARA_DEBT_PERCENT,
+      all: String(this.env.CAPYBARA_DEBT_ALL ?? '').trim() === 'true',
+    });
+  }
+
+  /**
+   * @param {string} child
+   * @returns {Promise<object>}
+   */
+  async scaledLimits(child) {
+    const loaded = await loadDebtLimitsFile(this.limitsPath);
+    return scaleOutstandingToRaw(
+      resolveChildLimits(loaded, child, this.env),
+      await this.tokenDecimals()
+    );
   }
 
   /**
@@ -262,6 +330,7 @@ class DebtLedgerAction {
         `unknown CAPYBARA_DEBT_OP: ${op || '(empty)'}. Available: ${LEDGER_OPS.join(', ')}`
       );
     }
+    await this.prepareJournal(this.childName());
     if (op === 'summary') {
       return this.summary();
     }
@@ -360,10 +429,12 @@ class DebtLedgerAction {
     if (hasText(this.env.CAPYBARA_DEBT_PERCENT) || String(this.env.CAPYBARA_DEBT_ALL ?? '').trim() === 'true') {
       throw validationError('create accepts an amount only');
     }
-    const amountText = String(this.env.CAPYBARA_DEBT_AMOUNT ?? '').trim();
-    if (!/^[0-9]+$/.test(amountText) || BigInt(amountText) <= 0n) {
-      throw validationError('CAPYBARA_DEBT_AMOUNT must be a positive integer string');
+    const raw = await this.optionalHumanRaw();
+    if (raw == null) {
+      throw validationError('CAPYBARA_DEBT_AMOUNT must be a positive decimal string');
     }
+    const amountText = raw.toString();
+    const shown = formatRawAmount(raw, await this.tokenDecimals());
     const debtId = hasText(this.env.CAPYBARA_DEBT_ID)
       ? String(this.env.CAPYBARA_DEBT_ID).trim()
       : crypto.randomUUID();
@@ -375,8 +446,7 @@ class DebtLedgerAction {
     if (dueText && !DUE_PATTERN.test(dueText)) {
       throw validationError('CAPYBARA_DEBT_DUE must be YYYY-MM-DD');
     }
-    const loaded = await loadDebtLimitsFile(this.limitsPath);
-    const limits = resolveChildLimits(loaded, child, this.env);
+    const limits = await this.scaledLimits(child);
     const manualBlock = hasManualBlock(await this.eventsFor(child));
     const preview = await checkNewDebt({
       child,
@@ -396,8 +466,8 @@ class DebtLedgerAction {
     }
     const violated = preview.reasons.map((item) => item.code);
     const previewText = preview.allowed
-      ? `Создать долг ${debtId} на ${amountText} (${reason})`
-      : `Создать долг ${debtId} на ${amountText} в обход [${violated.join(', ')}] (${overrideReason})`;
+      ? `Создать долг ${debtId} на ${shown} (${reason})`
+      : `Создать долг ${debtId} на ${shown} в обход [${violated.join(', ')}] (${overrideReason})`;
     await this.confirmMutation(previewText);
     const again = await checkNewDebt({
       child,
@@ -461,12 +531,7 @@ class DebtLedgerAction {
     const events = await this.eventsFor(child);
     this.assertNoOpenRepay(events, debtId);
     const remainder = projectDebtRemainder(events, debtId);
-    const portion = resolveDebtPortion({
-      remainder,
-      amount: this.env.CAPYBARA_DEBT_AMOUNT,
-      percent: this.env.CAPYBARA_DEBT_PERCENT,
-      all: String(this.env.CAPYBARA_DEBT_ALL ?? '').trim() === 'true',
-    });
+    const portion = await this.portionFrom(remainder);
     const closing = portion === remainder;
     if (closing) {
       await this.confirmClose(`Простить ${portion} по ${debtId} (${reason})`, events, debtId);
@@ -553,16 +618,18 @@ class DebtLedgerAction {
     if (hasText(this.env.CAPYBARA_DEBT_PERCENT) || String(this.env.CAPYBARA_DEBT_ALL ?? '').trim() === 'true') {
       throw validationError('fine accepts an amount only');
     }
-    const amountText = String(this.env.CAPYBARA_DEBT_AMOUNT ?? '').trim();
-    if (!/^[0-9]+$/.test(amountText) || BigInt(amountText) <= 0n) {
-      throw validationError('CAPYBARA_DEBT_AMOUNT must be a positive integer string');
+    const raw = await this.optionalHumanRaw();
+    if (raw == null) {
+      throw validationError('CAPYBARA_DEBT_AMOUNT must be a positive decimal string');
     }
+    const amountText = raw.toString();
+    const shown = formatRawAmount(raw, await this.tokenDecimals());
     const events = await this.eventsFor(child);
     this.assertNoOpenRepay(events, debtId);
     if (projectDebtRemainder(events, debtId) <= 0n) {
       throw validationError('closed debt cannot be fined');
     }
-    await this.confirmMutation(`Штраф ${amountText} по ${debtId} (${reason})`);
+    await this.confirmMutation(`Штраф ${shown} по ${debtId} (${reason})`);
     const written = await appendDebtEvent({
       child,
       scope: this.scope(),
@@ -743,12 +810,7 @@ class DebtLedgerAction {
     const events = await this.eventsFor(child);
     this.assertNoOpenRepay(events, debtId);
     const remainder = projectDebtRemainder(events, debtId);
-    const portion = resolveDebtPortion({
-      remainder,
-      amount: this.env.CAPYBARA_DEBT_AMOUNT,
-      percent: this.env.CAPYBARA_DEBT_PERCENT,
-      all: String(this.env.CAPYBARA_DEBT_ALL ?? '').trim() === 'true',
-    });
+    const portion = await this.portionFrom(remainder);
     const available = await this.balanceOf(child);
     if (available < portion) {
       throw this.insufficientBalance(portion, available);

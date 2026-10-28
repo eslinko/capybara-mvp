@@ -235,11 +235,30 @@ function resolveChildLimits(loaded, child, env = {}) {
   return merged;
 }
 
+/**
+ * JSON and env caps are human whole CAPY. Compare them as token raw.
+ * @param {{ maxOutstanding?: { kind: string, amount?: bigint } }} limits
+ * @param {number} decimals
+ * @returns {object}
+ */
+function scaleOutstandingToRaw(limits, decimals) {
+  const cap = limits.maxOutstanding;
+  if (!cap || cap.kind !== 'amount' || cap.amount == null) {
+    return limits;
+  }
+  const factor = 10n ** BigInt(decimals);
+  return {
+    ...limits,
+    maxOutstanding: { kind: 'amount', amount: cap.amount * factor },
+  };
+}
+
 module.exports = {
   WORKING_LIMITS_PATH,
   EXAMPLE_LIMITS_PATH,
   DEBT_LIMIT_ENV,
   loadDebtLimitsFile,
   resolveChildLimits,
+  scaleOutstandingToRaw,
   limitsError,
 };

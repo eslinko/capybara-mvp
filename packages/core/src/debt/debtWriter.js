@@ -78,12 +78,14 @@ async function appendDebtEvent(params) {
         recorded_at: params.recordedAt ?? new Date().toISOString(),
       },
       type: params.type,
+      amount_unit: 'token_raw',
       remainder_before: remainderBefore.toString(),
       remainder_after: remainderBefore.toString(),
     };
     if (params.amount != null) {
       event.amounts = {
         amount: amountToIntegerString(params.amount),
+        amount_unit: 'token_raw',
       };
     }
     if (params.comment != null) {

@@ -62,6 +62,15 @@ function resolveDebtPortion(params) {
     }
     return portion;
   }
+  if (typeof params.amount === 'bigint') {
+    if (params.amount <= 0n) {
+      throw portionError('amount must be a positive integer');
+    }
+    if (params.amount > remainder) {
+      throw portionError(`amount ${params.amount} exceeds remainder ${remainder}`);
+    }
+    return params.amount;
+  }
   const text = String(params.amount).trim();
   if (!/^[0-9]+$/.test(text) || BigInt(text) <= 0n) {
     throw portionError('amount must be a positive integer');
