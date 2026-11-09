@@ -150,8 +150,14 @@ describe('debt programmatic status', () => {
     /** @type {string[]} */
     const chunks = [];
     const originalWrite = process.stdout.write;
+    const originalErr = process.stderr.write;
     process.stdout.write = function write(chunk, encoding, cb) {
       chunks.push(Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk));
+      if (typeof encoding === 'function') encoding();
+      else if (typeof cb === 'function') cb();
+      return true;
+    };
+    process.stderr.write = function write(chunk, encoding, cb) {
       if (typeof encoding === 'function') encoding();
       else if (typeof cb === 'function') cb();
       return true;
@@ -182,6 +188,7 @@ describe('debt programmatic status', () => {
       expect(chunks.join('')).to.equal('');
     } finally {
       process.stdout.write = originalWrite;
+      process.stderr.write = originalErr;
       CapybaraRouter.prototype.route = originalRoute;
       if (previousAction === undefined) delete process.env.CAPYBARA_ACTION;
       else process.env.CAPYBARA_ACTION = previousAction;
