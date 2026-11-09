@@ -10,6 +10,7 @@
 const logger = require('../packages/core/src/lib/infrastructure/Logger');
 const CapybaraRouter = require('../packages/core/src/CapybaraRouter');
 const { exitCodeForDebtError } = require('../packages/core/src/actions/DebtLedgerAction');
+const { formatHumanBlock } = require('../packages/core/src/debt/debtStatusHuman');
 
 async function main() {
   const logLevel = process.env.LOG_LEVEL || (process.env.DEBUG ? 'debug' : 'info');
@@ -64,6 +65,8 @@ async function main() {
     const result = await router.route(action);
     if (action === 6 && result && (result.op === 'summary' || result.op === 'show')) {
       process.stdout.write(`${JSON.stringify(result)}\n`);
+      const human = formatHumanBlock(result);
+      if (human) process.stderr.write(human);
     }
   } catch (error) {
     if (error.message && error.message.includes('Unknown Capybara action')) {
