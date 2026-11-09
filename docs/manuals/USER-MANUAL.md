@@ -369,6 +369,22 @@ node capybara/cli/capybara.js
 
 `CAPYBARA_DEBT_AMOUNT` — человеческая сумма (`5` или `5.555`) с числом знаков не больше decimals токена. Журнал хранит целое raw и `amount_unit: token_raw`. Старый журнал без этой метки один раз умножается на `10^decimals`.
 
+Канон проверки остатка — `summary` или `show`. После успеха CLI пишет в stdout один JSON: raw `outstanding` / `card.remainder` и поля `*_human`. Ручной разбор NDJSON для вердикта не нужен. Эталон метода: [`analysis-tristan-debt-remainder-method-2026-11-09.md`](../analysis/analysis-tristan-debt-remainder-method-2026-11-09.md).
+
+Пример из корня DOGEstonia (`gfl_reality`, кошелёк `tristan`):
+
+```bash
+CAPY_MODE=gfl_reality CAPYBARA_ACTION=6 CAPYBARA_WALLET=tristan \
+CAPYBARA_DEBT_OP=summary \
+node capybara/cli/capybara.js
+```
+
+```bash
+CAPY_MODE=gfl_reality CAPYBARA_ACTION=6 CAPYBARA_WALLET=tristan \
+CAPYBARA_DEBT_OP=show CAPYBARA_DEBT_ID=debt-001-260901 \
+node capybara/cli/capybara.js
+```
+
 **Частичное погашение** (перевод в пул только на указанную сумму; остаток долга уменьшается после подтверждённого receipt):
 
 ```bash
