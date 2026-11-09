@@ -61,7 +61,10 @@ async function main() {
 
   const router = new CapybaraRouter();
   try {
-    await router.route(action);
+    const result = await router.route(action);
+    if (action === 6 && result && (result.op === 'summary' || result.op === 'show')) {
+      process.stdout.write(`${JSON.stringify(result)}\n`);
+    }
   } catch (error) {
     if (error.message && error.message.includes('Unknown Capybara action')) {
       logger.error(error.message);

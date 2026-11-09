@@ -9,7 +9,7 @@ const { checkNewDebt } = require('../debt/debtAvailability');
 const { appendDueChange, projectDue, isDebtOverdue, tallinnCalendarDate } = require('../debt/debtOverdue');
 const { loadDebtLimitsFile, resolveChildLimits, scaleOutstandingToRaw } = require('../debt/debtLimits');
 const { resolveDebtPortion } = require('../debt/debtPortion');
-const { parseHumanToRaw, formatRawAmount } = require('../debt/debtAmount');
+const { parseHumanToRaw, formatRawAmount, AMOUNT_UNIT_RAW } = require('../debt/debtAmount');
 const { migrateHumanWholeJournal } = require('../debt/debtMigrate');
 const { openRepayOperations, findRepayEvent } = require('../debt/debtRepay');
 const { activeSanctions, unresolvedSanctions, hasManualBlock, mergedGadgets, parseDecisionList, SANCTION_TYPES } = require('../debt/debtSanctions');
@@ -269,11 +269,25 @@ class DebtLedgerAction {
   }
 
   /**
+   * @param {string} child
+   * @returns {string}
+   */
+  journalFile(child) {
+    return getChildDebtPath({
+      child,
+      scope: this.scope(),
+      debtRoot: this.debtRoot,
+      mode: this.scope().mode,
+    });
+  }
+
+  /**
    * @param {Array<Record<string, unknown>>} events
    * @param {string} debtId
+   * @param {number} decimals
    * @returns {Record<string, unknown>}
    */
-  cardFor(events, debtId) {
+  cardFor(events, debtId, decimals) {
     let original = 0n;
     let fines = 0n;
     let settled = 0n;
@@ -298,13 +312,18 @@ class DebtLedgerAction {
     }
     const remainder = projectDebtRemainder(events, debtId);
     const due = projectDue(events, debtId);
+    const create = events.find((event) => event?.debt_id === debtId && event.type === 'create');
+    const comment = typeof create?.comment === 'string' ? create.comment : '';
     return {
       debtId,
+      amount_unit: AMOUNT_UNIT_RAW,
       original: original.toString(),
       fines: fines.toString(),
       settled: settled.toString(),
       forgiven: forgiven.toString(),
       remainder: remainder.toString(),
+      remainder_human: formatRawAmount(remainder, decimals),
+      comment,
       due: due.due,
       dueHistory: due.history,
       overdue: isDebtOverdue({ due: due.due, now: this.now, remainder }),
@@ -381,7 +400,8 @@ class DebtLedgerAction {
         ids.push(event.debt_id);
       }
     }
-    const debts = ids.map((debtId) => this.cardFor(events, debtId));
+    const decimals = await this.tokenDecimals();
+    const debts = ids.map((debtId) => this.cardFor(events, debtId, decimals));
     const outstanding = debts.reduce((sum, card) => sum + BigInt(card.remainder), 0n);
     const loaded = await loadDebtLimitsFile(this.limitsPath);
     const limits = resolveChildLimits(loaded, child, this.env);
@@ -392,7 +412,12 @@ class DebtLedgerAction {
       op: 'summary',
       confirmed: false,
       child,
+      amount_unit: AMOUNT_UNIT_RAW,
       outstanding: outstanding.toString(),
+      outstanding_human: formatRawAmount(outstanding, decimals),
+      journalPath: this.journalFile(child),
+      scope: this.scope(),
+      mode: this.scope().mode,
       debts,
       gadgets: gadgets.current,
       gadgetHistory: gadgets.history,
@@ -410,13 +435,18 @@ class DebtLedgerAction {
     if (!events.some((event) => event.debt_id === debtId)) {
       throw validationError(`debt_id not found: ${debtId}`);
     }
+    const decimals = await this.tokenDecimals();
     return {
       ok: true,
       action: 6,
       op: 'show',
       confirmed: false,
       child,
-      card: this.cardFor(events, debtId),
+      amount_unit: AMOUNT_UNIT_RAW,
+      journalPath: this.journalFile(child),
+      scope: this.scope(),
+      mode: this.scope().mode,
+      card: this.cardFor(events, debtId, decimals),
     };
   }
 
