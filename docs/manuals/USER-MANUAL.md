@@ -371,6 +371,10 @@ node capybara/cli/capybara.js
 
 Канон проверки остатка — `summary` или `show`. После успеха CLI пишет в stdout один JSON: raw `outstanding` / `card.remainder` и поля `*_human`. Ручной разбор NDJSON для вердикта не нужен. Эталон метода: [`analysis-tristan-debt-remainder-method-2026-11-09.md`](../analysis/analysis-tristan-debt-remainder-method-2026-11-09.md).
 
+Карточка также отдаёт `original_human`, `settled_human`, `fines_human`, `forgiven_human` (плюс существующий `remainder_human`).
+
+Оператор читает human-блок на **stderr**: `outstanding_human` (или `remainder_human` у `show`), таблица `debt_id | comment | original | settled | remainder` и строка `read-only` / `confirmed: false` — перевод не создаётся. Скрипты читают **одну** JSON-строку на stdout (`op` = `summary` или `show`). UX-эталон таблицы: [`analysis-tristan-debt-summary-cli-2026-11-09.md`](../analysis/analysis-tristan-debt-summary-cli-2026-11-09.md). Строки Logger по-прежнему могут идти в stdout рядом с JSON.
+
 Пример из корня DOGEstonia (`gfl_reality`, кошелёк `tristan`):
 
 ```bash
