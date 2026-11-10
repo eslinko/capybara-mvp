@@ -730,6 +730,81 @@ class AdvanceLedgerAction {
     if (availableAgain < remainder) {
       throw validationError('child balance is below the advance remainder');
     }
+    return this.commitSettleClawback(child, advanceId, remainder, comment);
+  }
+
+  /**
+   * Open remainder for the payout child and this scope. Does not write.
+   * The balance rule is balance now plus the payout, not the manual settle rule.
+   * @param {string} child
+   * @param {string} advanceId
+   * @param {bigint} payoutRaw
+   * @param {bigint} balanceRaw
+   * @returns {Promise<bigint>}
+   */
+  async preflightEmbedded(child, advanceId, payoutRaw, balanceRaw) {
+    const events = await this.eventsFor(child);
+    const remainder = requireOpenAdvance(events, advanceId);
+    this.assertSameChildAndScope(events, advanceId, child);
+    if (findOpenSettleOperation(events, advanceId)) {
+      throw validationError('advance settle is already open');
+    }
+    if (BigInt(balanceRaw) + BigInt(payoutRaw) < remainder) {
+      throw validationError('child balance plus payout is below the advance remainder');
+    }
+    return remainder;
+  }
+
+  /**
+   * Clawback after a confirmed payout. Does not confirm and does not apply the manual balance rule.
+   * @param {string} child
+   * @param {string} advanceId
+   * @returns {Promise<object>}
+   */
+  async settleEmbedded(child, advanceId) {
+    const events = await this.eventsFor(child);
+    const remainder = requireOpenAdvance(events, advanceId);
+    this.assertSameChildAndScope(events, advanceId, child);
+    if (findOpenSettleOperation(events, advanceId)) {
+      throw validationError('advance settle is already open');
+    }
+    return this.commitSettleClawback(child, advanceId, remainder, undefined);
+  }
+
+  /**
+   * @param {Array<Record<string, unknown>>} events
+   * @param {string} advanceId
+   * @param {string} child
+   * @returns {void}
+   */
+  assertSameChildAndScope(events, advanceId, child) {
+    const row = events.find((event) => event.advance_id === advanceId && event.type === 'issue')
+      ?? events.find((event) => event.advance_id === advanceId);
+    if (!row) {
+      throw validationError(`advance_id not found: ${advanceId}`);
+    }
+    if (String(row.child) !== child) {
+      throw validationError('advance child does not match the payout wallet');
+    }
+    const scope = this.scope();
+    const eventScope = row.scope ?? {};
+    const same = ['mode', 'chainId', 'token', 'pool'].every((key) => (
+      String(eventScope[key] ?? '').trim().toLowerCase()
+      === String(scope[key] ?? '').trim().toLowerCase()
+    ));
+    if (!same) {
+      throw validationError('advance scope does not match the payout');
+    }
+  }
+
+  /**
+   * @param {string} child
+   * @param {string} advanceId
+   * @param {bigint} remainder
+   * @param {string|undefined} comment
+   * @returns {Promise<object>}
+   */
+  async commitSettleClawback(child, advanceId, remainder, comment) {
     const operationId = crypto.randomUUID();
     await this.appendSettle(child, advanceId, 'settle-intent', remainder, operationId, undefined, comment);
     if (this.isMock()) {

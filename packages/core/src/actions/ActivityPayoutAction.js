@@ -12,6 +12,7 @@ const {
 const { parseAmountHuman } = require('../charge-pool/splitAllocation');
 const { formatAmountHuman } = require('./SweepToParentAction');
 const { resolveLaunchedBy } = require('../runtimeContext');
+const { AdvanceLedgerAction } = require('./AdvanceLedgerAction');
 
 const SECTION_TITLE = '🦫 Capybara · Выплаты (activity payout)';
 
@@ -158,6 +159,9 @@ class ActivityPayoutAction {
    *   logDir?: string,
    *   catalogPath?: string,
    *   transferFn?: (() => Promise<{ txHash?: string|null, mock?: boolean }>)|null,
+   *   advanceId?: string,
+   *   advanceRoot?: string,
+   *   balanceFn?: (child: string) => Promise<bigint>|bigint,
    * }} [options]
    */
   constructor(router, options = {}) {
@@ -182,6 +186,47 @@ class ActivityPayoutAction {
     this.logDir = options.logDir;
     this.catalogPath = options.catalogPath;
     this.transferFn = options.transferFn ?? null;
+    this.advanceId = options.advanceId !== undefined
+      ? options.advanceId
+      : process.env.CAPYBARA_ADVANCE_ID;
+    this.advanceRoot = options.advanceRoot;
+    this.balanceFn = options.balanceFn;
+  }
+
+  /**
+   * @param {string} child
+   * @param {string} advanceId
+   * @returns {AdvanceLedgerAction}
+   */
+  advanceLedger(child, advanceId) {
+    return new AdvanceLedgerAction(this.router, {
+      advanceRoot: this.advanceRoot,
+      decimals: this.payoutDecimals,
+      env: {
+        CAPYBARA_WALLET: child,
+        CAPYBARA_ADVANCE_ID: advanceId,
+      },
+      balanceFn: this.balanceFn,
+      confirmFn: this.confirmFn,
+      isTty: this.isTty,
+    });
+  }
+
+  /**
+   * @param {string} child
+   * @returns {Promise<bigint>}
+   */
+  async childBalanceRaw(child) {
+    if (typeof this.balanceFn === 'function') {
+      return BigInt(await this.balanceFn(child));
+    }
+    const token = this.router?.capyToken;
+    const registry = this.router?.walletRegistry;
+    if (typeof token?.getBalance === 'function' && typeof registry?.resolve === 'function') {
+      const info = registry.resolve(child);
+      return BigInt(await token.getBalance(info.address));
+    }
+    throw new Error('🚫 Баланс ребёнка нужен для аванса на action 4');
   }
 
   /**
@@ -253,15 +298,33 @@ class ActivityPayoutAction {
         throw new Error('🚫 Сумма выплаты должна быть > 0');
       }
     }
+    this.payoutDecimals = decimals;
+
+    const advanceId = String(this.advanceId ?? '').trim();
+    const hookAdvance = Boolean(advanceId) && wantsPayout;
+    let clawbackDisplay = '';
+    if (hookAdvance) {
+      const balanceRaw = await this.childBalanceRaw(walletKey);
+      const remainder = await this.advanceLedger(walletKey, advanceId).preflightEmbedded(
+        walletKey,
+        advanceId,
+        amountTokenRaw,
+        balanceRaw,
+      );
+      clawbackDisplay = formatAmountHuman(remainder, decimals, symbol);
+    }
 
     if (wantsPayout && !isMockMode) {
       const amountDisplay = formatAmountHuman(amountTokenRaw, decimals, symbol);
+      const question = hookAdvance
+        ? `❓ Подтвердить выплату ${amountDisplay} → ${displayWalletName(walletKey)} и возврат ${clawbackDisplay} в пул? (да/нет) `
+        : `❓ Подтвердить выплату ${amountDisplay} → ${displayWalletName(walletKey)}? (да/нет) `;
       const confirmed = await confirmPayment({
         owedTotalDisplay: amountDisplay,
         walletName: displayWalletName(walletKey),
         confirmFn: this.confirmFn,
         isTty: this.isTty,
-        question: `❓ Подтвердить выплату ${amountDisplay} → ${displayWalletName(walletKey)}? (да/нет) `,
+        question,
       });
       if (!confirmed) {
         this.logger.info('🛑 Отменено — журнал не записан, перевод не отправлен');
@@ -341,6 +404,11 @@ class ActivityPayoutAction {
         (wantsPayout ? ` · payout=${amountInfo.amountHuman}` : '')
     );
 
+    let settleResult = null;
+    if (hookAdvance) {
+      settleResult = await this.advanceLedger(walletKey, advanceId).settleEmbedded(walletKey, advanceId);
+    }
+
     return {
       ok: true,
       action: 4,
@@ -353,6 +421,8 @@ class ActivityPayoutAction {
       mode: capyMode,
       entries: journalResult.entries,
       launched_by: resolveLaunchedBy(),
+      advanceId: hookAdvance ? advanceId : null,
+      advanceSettled: Boolean(settleResult),
     };
   }
 
