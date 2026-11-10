@@ -38,6 +38,13 @@
 
 `<scope>` — `mode--chainId--token--pool` ([debtPath.js](../packages/core/src/debt/debtPath.js)). Смена сети, токена, пула или кошелька открывает другой файл. Строка `charge` / `payment` в журнале выплат долг не уменьшает.
 
+Журнал аванса (действие 7) — третий каталог. Бой только при `gfl_reality`. Любой другой режим пишет в `mock/` и боевой файл не меняет ([advancePath.js](../packages/core/src/advance/advancePath.js)).
+
+| Режим | Папка | Пример файла |
+|-------|-------|--------------|
+| 🔴 боевой (`CAPY_MODE=gfl_reality`) | `capybara/logs/capybara/advance/<scope>/` | `capybara/logs/capybara/advance/gfl_reality--<chain>--<token>--<pool>/tristan.ndjson` |
+| 🧪 тест (`mock` и любой режим кроме `gfl_reality`) | `capybara/logs/capybara/advance/mock/<scope>/` | `capybara/logs/capybara/advance/mock/mock--<chain>--<token>--<pool>/tristan.ndjson` |
+
 ## 1.3 Формат: NDJSON
 
 **NDJSON** = «одна строка — один JSON-объект». Файл читается построчно; каждая строка —

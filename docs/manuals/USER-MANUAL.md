@@ -18,6 +18,7 @@
   подтверждение и выплатить ребёнку.
 - **Списание в пул** — снять с ребёнка (или сразу со всех, поделив сумму) в общий котёл (родитель).
 - **Выплаты за активность** — зачёт контрольной/экзамена (метрики в журнал) и опциональная выплата $CAPY ребёнку.
+- **Аванс** (действие 7) — отдельный журнал `logs/capybara/advance/`. Это не долг и не списание в пул.
 - **Деплой контракта** (действие 51) и **доэмиссия** (действие 52) — от кошелька deployer. Браузерный mint — отдельная страница, эти команды его не заменяют: [README-mint.md](../../scripts/README-mint.md). Эта HTML-страница — Phase F и не входит в эпик EPIC-SCR-CAPY-EVM (Interview Q6=A).
 
 Каждое денежное действие пишется в журнал операций — см. §4 и [LOGGING.md](LOGGING.md).
@@ -138,7 +139,7 @@ Polygon mainnet:
 #### P1 — экспертный диалог (система команд → команда)
 
 ```text
-Ты — эксперт по семейному Capybara CLI и учебной модели (действия 0–4, 51 и 52: деплой и доэмиссия контракта).
+Ты — эксперт по семейному Capybara CLI и учебной модели (действия 0–4, 6, 7, 51 и 52: долг, аванс, деплой и доэмиссия контракта).
 На входе приложен этот же USER-MANUAL — единственный SSOT.
 
 Задача P1: в диалоге понять запрос, согласовать действие и параметры. Когда обязательные поля
@@ -146,7 +147,7 @@ Polygon mainnet:
 оператора отдельно вставлять P2. Не запускай команды.
 
 Правила:
-1) Только USER-MANUAL (§3). Не выдумывай действия и env. Разрешены только 0–4, 51 и 52.
+1) Только USER-MANUAL (§3). Не выдумывай действия и env. Разрешены только 0–4, 6, 7, 51 и 52.
 2) Отличай: 0 проверка; 1 sweep; 2 дневные; 3 пул; 4 зачёт активности; 51 деплой контракта; 52 доэмиссия. Не путай 3 и 4. Не путай 51/52 с браузерным mint.
 3) Action 4: system cidead|ru; level; period?; subject; activity type; subtype?; template?;
    metric value; выплата да/нет + amount. Коды subtype — транслит
@@ -178,7 +179,7 @@ Polygon mainnet:
 и не handoff «вставь другой промпт». Не запускай команды.
 
 Правила:
-1) Только env и действия 0–4, 51 и 52 из мануала. Не выдумывай CLI.
+1) Только env и действия 0–4, 6, 7, 51 и 52 из мануала. Не выдумывай CLI.
 2) Если данных хватает — сразу ## Готовая команда. Интервью только если не хватает
    обязательных полей; не предлагай «Запрос на действие» вместо команды.
 3) Не пиши преамбулы вроде «собираю по брифу P1» — максимум одна короткая строка, затем команда.
@@ -359,6 +360,8 @@ node capybara/cli/capybara.js
 
 В `gfl_reality` при amount>0 спросит подтверждение в TTY (как действия 2/3). При ошибке transfer журнал не пишется (rollback).
 
+Если задан непустой `CAPYBARA_ADVANCE_ID` и выплата нужна, action 4 до confirm и до журнала активности проверяет открытый аванс того же ребёнка: `баланс_сейчас + сумма_payout ≥ остаток_аванса`. Не проходит — не пишутся ни payout, ни settle. Проходит — в бою один вопрос показывает выплату и возврат в пул, затем payout, затем закрытие аванса. Без id action 4 аванс не трогает. `settle` как операция action 7 — отдельный ручной возврат, не этот хук.
+
 ---
 
 ### 📒 Действие 6 — Журнал долга ребёнка
@@ -496,6 +499,42 @@ node capybara/cli/capybara.js
 
 ---
 
+### 🏦 Действие 7 — Аванс ребёнку
+
+Отдельный журнал обязательств до выплаты за активность. Это не действие 6 и не `charge`. Кошелёк только `tristan` или `bastian`. Операции: `issue`, `forgive`, `settle`, `summary`, `show` (`CAPYBARA_ADVANCE_OP`). `issue`, `forgive` и `settle` в `gfl_reality` ждут TTY. `summary` и `show` подтверждения не требуют: один JSON в stdout и человеческий блок в stderr.
+
+`CAPYBARA_ADVANCE_AMOUNT` — человеческая сумма. Журнал хранит raw. Mock не шлёт живой transfer: hash `mock:<advance_id>`, файл под `logs/capybara/advance/mock/`. Бой пишет в `logs/capybara/advance/`.
+
+**Выдать 400 в mock:**
+
+```bash
+CAPY_MODE=mock CAPYBARA_ACTION=7 CAPYBARA_WALLET=tristan \
+CAPYBARA_ADVANCE_OP=issue CAPYBARA_ADVANCE_AMOUNT=400 \
+CAPYBARA_ADVANCE_REASON=activity\ float CAPYBARA_ADVANCE_ID=adv-400 \
+node capybara/cli/capybara.js
+```
+
+**Закрыть вручную** (остаток целиком, ребёнок → пул; в mock перевода нет):
+
+```bash
+CAPY_MODE=mock CAPYBARA_ACTION=7 CAPYBARA_WALLET=tristan \
+CAPYBARA_ADVANCE_OP=settle CAPYBARA_ADVANCE_ID=adv-400 \
+node capybara/cli/capybara.js
+```
+
+**Простить** без transfer, причина обязательна:
+
+```bash
+CAPY_MODE=mock CAPYBARA_ACTION=7 CAPYBARA_WALLET=tristan \
+CAPYBARA_ADVANCE_OP=forgive CAPYBARA_ADVANCE_ID=adv-400 \
+CAPYBARA_ADVANCE_REASON=waived \
+node capybara/cli/capybara.js
+```
+
+Повторный `settle` или `forgive` уже закрытого аванса — ошибка. Второй открытый аванс при лимите `max_open` отказывается, пока нет `CAPYBARA_ADVANCE_OVERRIDE_REASON`.
+
+---
+
 ### 🚀 Действие 51 — Задеплоить контракт $CAPY
 
 Деплой `CapybaraToken` с кошелька deployer. `CAPY_TOKEN_ADDRESS` для этого действия **не** нужен: адреса ещё нет. Нужны `DEPLOYER_ADDRESS` и `DEPLOYER_PRIVATE_KEY`.
@@ -537,7 +576,7 @@ CAPY_MODE=gfl_reality CAPYBARA_ACTION=52 CAPYBARA_AMOUNT=1 CAPYBARA_TO=0x… nod
 журнал; тестовые (mock) записи лежат отдельно в `capybara/logs/capybara/mock/<кошелёк>.ndjson`. Папки
 создаются сами. Одна строка — одна запись; поле `type` показывает вид: `day`/`payment` (действие 2),
 `sweep` (действие 1), `charge` (действие 3), `activity_validated`/`payout` (действие 4),
-`token_deployed` (действие 51), `token_minted` (действие 52). Файл 51/52 назван адресом deployer. Журнал долга (действие 6) лежит отдельно: `capybara/logs/capybara/debt/<scope>/<ребёнок>.ndjson`, mock — в `capybara/logs/capybara/debt/mock/`. Из боевого журнала выплат берётся «последняя выплата», когда в
+`token_deployed` (действие 51), `token_minted` (действие 52). Файл 51/52 назван адресом deployer. Журнал долга (действие 6) лежит отдельно: `capybara/logs/capybara/debt/<scope>/<ребёнок>.ndjson`, mock — в `capybara/logs/capybara/debt/mock/`. Журнал аванса (действие 7) — `capybara/logs/capybara/advance/…`, mock — `capybara/logs/capybara/advance/mock/`. Из боевого журнала выплат берётся «последняя выплата», когда в
 действии 2 не задан `CAPYBARA_FROM` (учитываются только строки `day`).
 
 Посмотреть:

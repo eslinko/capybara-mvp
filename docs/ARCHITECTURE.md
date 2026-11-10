@@ -154,6 +154,10 @@ parent-ключ нужен для выплат в action 2). Неизвестн�
 
 Отдельный NDJSON обязательств, не журнал выплат. Контракт и подоперации: [docs/architecture/01-child-debt-accounting/](architecture/01-child-debt-accounting/00-overview.md). Путь файла — [debtPath.js](../packages/core/src/debt/debtPath.js): `logs/capybara/debt/` для `gfl_reality` и `logs/capybara/debt/mock/` для остальных режимов, дальше `mode--chainId--token--pool/<ребёнок>.ndjson`. Погашение идёт через `CapyToken` в пул родителя и в mock не вызывает `contract.transfer`. Действия 2 и 3 этот журнал не пишут.
 
+### Action 7 — аванс
+
+Контракт: [docs/architecture/02-activity-payout-advance/](architecture/02-activity-payout-advance/00-overview.md). Журнал отдельно от долга: `logs/capybara/advance/` в бою и `logs/capybara/advance/mock/` иначе. Action 4 при непустом `CAPYBARA_ADVANCE_ID` проверяет `баланс_сейчас + сумма_payout ≥ остаток_аванса` до выплаты. Без id action 4 этот журнал не трогает.
+
 ### Ретрофит Action 1 → журнал
 Action 1 (sweep) после успешного перевода пишет строку `type:'sweep'` в тот же журнал
 ([SweepToParentAction.js:311-330](../../packages/core/src/actions/SweepToParentAction.js#L311)) — единая
