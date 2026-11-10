@@ -2,7 +2,7 @@
 
 const fs = require('fs/promises');
 
-const ZERO_DELTA_TYPES = new Set(['settle-intent', 'settle-pending']);
+const ZERO_DELTA_TYPES = new Set(['settle-intent', 'settle-pending', 'settle-failed']);
 const CLOSING_TYPES = new Set(['settle-settled', 'forgive']);
 const KNOWN_TYPES = new Set(['issue', ...ZERO_DELTA_TYPES, ...CLOSING_TYPES]);
 
@@ -40,7 +40,7 @@ function readIntegerAmount(raw, lineNumber) {
 
 /**
  * Open remainder equals the issue amount until settle-settled or forgive, which close it.
- * settle-intent and settle-pending do not close.
+ * settle-intent, settle-pending, and settle-failed do not close.
  * @param {Array<Record<string, unknown>>} events
  * @param {string} advanceId
  * @returns {bigint}

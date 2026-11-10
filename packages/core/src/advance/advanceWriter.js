@@ -12,6 +12,7 @@ const EVENT_TYPES = new Set([
   'settle-intent',
   'settle-pending',
   'settle-settled',
+  'settle-failed',
   'forgive',
 ]);
 
@@ -97,10 +98,10 @@ async function appendAdvanceEvent(params) {
       remainder_before: remainderBefore.toString(),
       remainder_after: remainderBefore.toString(),
     };
-    if (type === 'issue') {
-      if (params.amount == null) {
-        throw new Error('issue amount is required');
-      }
+    if (type === 'issue' && params.amount == null) {
+      throw new Error('issue amount is required');
+    }
+    if (params.amount != null) {
       event.amounts = {
         amount: amountToIntegerString(params.amount),
         amount_unit: 'token_raw',

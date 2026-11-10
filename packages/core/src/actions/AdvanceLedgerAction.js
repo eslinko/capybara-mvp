@@ -5,11 +5,12 @@ const { confirmPayment } = require('../daily-payments/confirmPayment');
 const { getChildAdvancePath } = require('../advance/advancePath');
 const { readAdvanceEvents, projectAdvanceRemainder } = require('../advance/advanceProjection');
 const { appendAdvanceEvent } = require('../advance/advanceWriter');
+const { findOpenSettleOperation, requireOpenAdvance } = require('../advance/advanceSettle');
 const { checkNewAdvance } = require('../advance/advanceAvailability');
 const { loadAdvanceLimitsFile, resolveChildAdvanceLimits, scaleAdvanceOutstandingToRaw } = require('../advance/advanceLimits');
 const { parseHumanToRaw, formatRawAmount, AMOUNT_UNIT_RAW } = require('../debt/debtAmount');
 
-const LEDGER_OPS = Object.freeze(['issue', 'forgive', 'summary', 'show']);
+const LEDGER_OPS = Object.freeze(['issue', 'forgive', 'settle', 'summary', 'show']);
 
 const EXIT_VALIDATION = 1;
 const EXIT_CANCEL = 2;
@@ -32,6 +33,16 @@ function validationError(message) {
 function cancelError(message) {
   const error = new Error(message || 'advance operation cancelled');
   error.code = 'ECANCEL';
+  return error;
+}
+
+/**
+ * @param {string} message
+ * @returns {Error}
+ */
+function pendingError(message) {
+  const error = new Error(message);
+  error.code = 'EADVANCE_PENDING';
   return error;
 }
 
@@ -68,7 +79,7 @@ function receiptSucceeded(receipt) {
 }
 
 /**
- * Action 7 advance ledger. settle is not an operation here.
+ * Action 7 advance ledger. Manual settle claws the full open remainder back to the pool.
  */
 class AdvanceLedgerAction {
   /**
@@ -81,6 +92,8 @@ class AdvanceLedgerAction {
    *   env?: NodeJS.ProcessEnv,
    *   decimals?: number,
    *   transferFn?: (child: string, amountRaw: bigint) => Promise<{ hash?: string, txHash?: string, wait?: () => Promise<unknown> }>,
+   *   balanceFn?: (child: string) => Promise<bigint>|bigint,
+   *   readReceiptFn?: (txHash: string) => Promise<unknown>,
    * }} [options]
    */
   constructor(router, options = {}) {
@@ -92,6 +105,8 @@ class AdvanceLedgerAction {
     this.env = options.env ?? process.env;
     this.decimals = options.decimals ?? null;
     this.transferFn = options.transferFn;
+    this.balanceFn = options.balanceFn;
+    this.readReceiptFn = options.readReceiptFn;
   }
 
   /**
@@ -174,6 +189,7 @@ class AdvanceLedgerAction {
     if (op === 'summary') return this.summary();
     if (op === 'show') return this.show();
     if (op === 'issue') return this.issue();
+    if (op === 'settle') return this.settle();
     return this.forgive();
   }
 
@@ -413,6 +429,382 @@ class AdvanceLedgerAction {
       mock: this.isMock(),
       overrideApplied: gate.overrideApplied,
       violations: gate.violations,
+      journalPath: written.filePath,
+    };
+  }
+
+  /**
+   * @param {string} child
+   * @param {string} display
+   * @returns {Promise<void>}
+   */
+  async confirmSettle(child, display) {
+    if (this.isMock()) return;
+    const confirmed = await confirmPayment({
+      owedTotalDisplay: display,
+      walletName: child,
+      confirmFn: this.confirmFn,
+      isTty: this.isTty,
+      question: `❓ Подтвердить возврат ${display} в пул? (да/нет) `,
+    });
+    if (!confirmed) {
+      throw cancelError('advance operation cancelled');
+    }
+  }
+
+  /**
+   * @param {string} child
+   * @returns {Promise<bigint>}
+   */
+  async balanceOf(child) {
+    if (typeof this.balanceFn === 'function') {
+      return BigInt(await this.balanceFn(child));
+    }
+    const token = this.router?.capyToken;
+    const registry = this.router?.walletRegistry;
+    if (typeof token?.getBalance === 'function' && typeof registry?.resolve === 'function') {
+      const info = registry.resolve(child);
+      return BigInt(await token.getBalance(info.address));
+    }
+    throw validationError('child balance is required for advance settle');
+  }
+
+  /**
+   * @param {string} child
+   * @param {string} advanceId
+   * @param {string} type
+   * @param {bigint|string} amount
+   * @param {string} operationId
+   * @param {string} [txHash]
+   * @param {string} [comment]
+   * @returns {Promise<{ filePath: string, event: Record<string, unknown> }>}
+   */
+  appendSettle(child, advanceId, type, amount, operationId, txHash, comment) {
+    return appendAdvanceEvent({
+      child,
+      scope: this.scope(),
+      advanceRoot: this.advanceRoot,
+      mode: this.scope().mode,
+      advanceId,
+      type,
+      amount,
+      operationId,
+      txHash,
+      comment,
+    });
+  }
+
+  /**
+   * Child → pool. Does not write a journal line.
+   * @param {string} child
+   * @param {bigint} amountRaw
+   * @returns {Promise<{ hash: string, receipt: unknown }>}
+   */
+  async transferChildToPool(child, amountRaw) {
+    if (this.isMock()) {
+      throw validationError('mock settle does not send a transfer');
+    }
+    if (typeof this.transferFn === 'function') {
+      const tx = await this.transferFn(child, amountRaw);
+      const hash = tx?.hash ?? tx?.txHash;
+      if (!hash) {
+        throw new Error('advance transfer did not return a hash');
+      }
+      if (typeof tx.wait !== 'function') {
+        return { hash: String(hash), receipt: null };
+      }
+      try {
+        const receipt = await tx.wait();
+        return { hash: String(hash), receipt };
+      } catch (error) {
+        if (error && typeof error === 'object') {
+          error.txHash = String(hash);
+        }
+        throw error;
+      }
+    }
+    const { capyToken, provider, rpcManager, config, walletRegistry } = this.router;
+    const childInfo = walletRegistry.resolve(child);
+    const tx = await capyToken.transfer(child, config.parent.address, amountRaw);
+    const txHash = String(tx.hash);
+    const { waitForTransactionReceipt } = require('../lib/infrastructure/RateLimitHelpers');
+    const providerHolder = { provider: capyToken.provider };
+    try {
+      const receipt = await waitForTransactionReceipt(tx, txHash, provider, {
+        maxRetries: 3,
+        initialDelayMs: 1000,
+        rpcManager: rpcManager || null,
+        ethersUtils: providerHolder,
+        contractName: 'CAPY advance settle transfer',
+      });
+      if (providerHolder.provider !== capyToken.provider) {
+        capyToken.setProvider(providerHolder.provider);
+      }
+      return { hash: txHash, receipt };
+    } catch (error) {
+      if (error && typeof error === 'object') {
+        error.txHash = txHash;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * @param {string} txHash
+   * @returns {Promise<unknown>}
+   */
+  async readSettleReceipt(txHash) {
+    if (typeof this.readReceiptFn === 'function') {
+      return this.readReceiptFn(txHash);
+    }
+    if (String(txHash).startsWith('mock:')) {
+      return { status: 1 };
+    }
+    const provider = this.router?.capyToken?.provider;
+    if (typeof provider?.getTransactionReceipt !== 'function') {
+      throw validationError('cannot read transfer receipt');
+    }
+    return provider.getTransactionReceipt(txHash);
+  }
+
+  /**
+   * Finish an open intent or pending. Does not send another transfer.
+   * @param {string} child
+   * @param {string} advanceId
+   * @param {Record<string, unknown>} openEvent
+   * @param {string|undefined} comment
+   * @returns {Promise<object>}
+   */
+  async finishOpenSettle(child, advanceId, openEvent, comment) {
+    const operationId = String(openEvent.operation_id);
+    const events = await this.eventsFor(child);
+    const settled = events.find((event) => (
+      event.advance_id === advanceId
+      && event.operation_id === operationId
+      && event.type === 'settle-settled'
+    ));
+    if (settled) {
+      return {
+        ok: true,
+        action: 7,
+        op: 'settle',
+        confirmed: false,
+        idempotent: true,
+        transferred: false,
+        child,
+        advanceId,
+        operationId,
+        txHash: settled.tx_hash ?? null,
+        remainder: '0',
+        mock: this.isMock(),
+        journalPath: this.journalFile(child),
+      };
+    }
+    if (events.some((event) => (
+      event.advance_id === advanceId
+      && event.operation_id === operationId
+      && event.type === 'settle-failed'
+    ))) {
+      throw validationError(`advance settle ${operationId} already failed`);
+    }
+    const txHash = typeof openEvent.tx_hash === 'string' ? openEvent.tx_hash : '';
+    const amount = openEvent.amounts?.amount ?? projectAdvanceRemainder(events, advanceId).toString();
+    if (!txHash) {
+      const decimals = await this.tokenDecimals();
+      await this.confirmSettle(child, formatRawAmount(BigInt(amount), decimals));
+      await this.appendSettle(child, advanceId, 'settle-failed', amount, operationId, undefined, comment);
+      throw validationError(`advance settle ${operationId} closed as failed without a tx hash`);
+    }
+    if (this.isMock() || txHash.startsWith('mock:')) {
+      const written = await this.appendSettle(
+        child,
+        advanceId,
+        'settle-settled',
+        amount,
+        operationId,
+        txHash,
+        comment,
+      );
+      return {
+        ok: true,
+        action: 7,
+        op: 'settle',
+        confirmed: false,
+        idempotent: false,
+        transferred: false,
+        child,
+        advanceId,
+        operationId,
+        txHash,
+        remainder: written.event.remainder_after,
+        mock: true,
+        journalPath: written.filePath,
+      };
+    }
+    const receipt = await this.readSettleReceipt(txHash);
+    if (!receipt) {
+      throw pendingError(`transfer ${txHash} is waiting for reconcile`);
+    }
+    if (!receiptSucceeded(receipt)) {
+      await this.appendSettle(child, advanceId, 'settle-failed', amount, operationId, txHash, comment);
+      throw validationError('advance receipt was not successful');
+    }
+    const fresh = await this.eventsFor(child);
+    const already = fresh.find((event) => (
+      event.advance_id === advanceId
+      && event.operation_id === operationId
+      && event.type === 'settle-settled'
+    ));
+    if (already) {
+      return {
+        ok: true,
+        action: 7,
+        op: 'settle',
+        confirmed: true,
+        idempotent: true,
+        transferred: false,
+        child,
+        advanceId,
+        operationId,
+        txHash,
+        remainder: '0',
+        mock: false,
+        journalPath: this.journalFile(child),
+      };
+    }
+    const written = await this.appendSettle(
+      child,
+      advanceId,
+      'settle-settled',
+      amount,
+      operationId,
+      txHash,
+      comment,
+    );
+    return {
+      ok: true,
+      action: 7,
+      op: 'settle',
+      confirmed: true,
+      idempotent: false,
+      transferred: false,
+      child,
+      advanceId,
+      operationId,
+      txHash,
+      remainder: written.event.remainder_after,
+      mock: false,
+      journalPath: written.filePath,
+    };
+  }
+
+  /**
+   * @returns {Promise<object>}
+   */
+  async settle() {
+    const child = this.childName();
+    const advanceId = String(this.env.CAPYBARA_ADVANCE_ID ?? '').trim();
+    if (!advanceId) {
+      throw validationError('CAPYBARA_ADVANCE_ID is required');
+    }
+    const comment = String(this.env.CAPYBARA_ADVANCE_REASON ?? '').trim() || undefined;
+    let events = await this.eventsFor(child);
+    let remainder = requireOpenAdvance(events, advanceId);
+    const open = findOpenSettleOperation(events, advanceId);
+    if (open) {
+      return this.finishOpenSettle(child, advanceId, open, comment);
+    }
+    const available = await this.balanceOf(child);
+    if (available < remainder) {
+      throw validationError('child balance is below the advance remainder');
+    }
+    const decimals = await this.tokenDecimals();
+    await this.confirmSettle(child, formatRawAmount(remainder, decimals));
+    events = await this.eventsFor(child);
+    remainder = requireOpenAdvance(events, advanceId);
+    const openAgain = findOpenSettleOperation(events, advanceId);
+    if (openAgain) {
+      return this.finishOpenSettle(child, advanceId, openAgain, comment);
+    }
+    const availableAgain = await this.balanceOf(child);
+    if (availableAgain < remainder) {
+      throw validationError('child balance is below the advance remainder');
+    }
+    const operationId = crypto.randomUUID();
+    await this.appendSettle(child, advanceId, 'settle-intent', remainder, operationId, undefined, comment);
+    if (this.isMock()) {
+      const txHash = `mock:${advanceId}`;
+      const written = await this.appendSettle(
+        child,
+        advanceId,
+        'settle-settled',
+        remainder,
+        operationId,
+        txHash,
+        comment,
+      );
+      return {
+        ok: true,
+        action: 7,
+        op: 'settle',
+        confirmed: false,
+        transferred: false,
+        child,
+        advanceId,
+        operationId,
+        txHash,
+        remainder: written.event.remainder_after,
+        mock: true,
+        journalPath: written.filePath,
+      };
+    }
+    /** @type {string|undefined} */
+    let txHash;
+    try {
+      const sent = await this.transferChildToPool(child, remainder);
+      txHash = sent.hash;
+      if (!sent.receipt) {
+        await this.appendSettle(child, advanceId, 'settle-pending', remainder, operationId, txHash, comment);
+        throw pendingError(`transfer ${txHash} is waiting for reconcile`);
+      }
+      if (!receiptSucceeded(sent.receipt)) {
+        await this.appendSettle(child, advanceId, 'settle-failed', remainder, operationId, txHash, comment);
+        throw validationError('advance receipt was not successful');
+      }
+    } catch (error) {
+      if (error?.code === 'EADVANCE_VALIDATION' || error?.code === 'EADVANCE_PENDING' || error?.code === 'ECANCEL') {
+        throw error;
+      }
+      if (!txHash && !error?.txHash) {
+        await this.appendSettle(child, advanceId, 'settle-failed', remainder, operationId, undefined, comment);
+        throw validationError('advance transfer did not return a hash');
+      }
+      const pendingHash = txHash || String(error.txHash);
+      await this.appendSettle(child, advanceId, 'settle-pending', remainder, operationId, pendingHash, comment);
+      throw pendingError(`transfer ${pendingHash} is waiting for reconcile`);
+    }
+    await this.appendSettle(child, advanceId, 'settle-pending', remainder, operationId, txHash, comment);
+    const written = await this.appendSettle(
+      child,
+      advanceId,
+      'settle-settled',
+      remainder,
+      operationId,
+      txHash,
+      comment,
+    );
+    return {
+      ok: true,
+      action: 7,
+      op: 'settle',
+      confirmed: true,
+      transferred: true,
+      child,
+      advanceId,
+      operationId,
+      txHash,
+      remainder: written.event.remainder_after,
+      mock: false,
       journalPath: written.filePath,
     };
   }
