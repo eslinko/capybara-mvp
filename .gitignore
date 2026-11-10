@@ -1,6 +1,7 @@
 node_modules/
 .env
 config/debt-limits.json
+config/advance-limits.json
 logs/**/*.ndjson
 !logs/**/.gitkeep
 .DS_Store
