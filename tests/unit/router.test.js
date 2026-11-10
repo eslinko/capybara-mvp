@@ -60,7 +60,7 @@ describe('Capybara router and actions', () => {
 
   it('CapybaraActionsManager registers action 1', async () => {
     const manager = new CapybaraActionsManager(routerStub);
-    expect(manager.getAvailableActions()).to.deep.equal([0, 1, 2, 3, 4, 6, 51, 52]);
+    expect(manager.getAvailableActions()).to.deep.equal([0, 1, 2, 3, 4, 6, 7, 51, 52]);
   });
 
   it('executeAction(5) tells the operator to use 51 or 52', async () => {

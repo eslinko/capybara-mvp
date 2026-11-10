@@ -294,7 +294,7 @@ describe('ACT-03 ActivityPayoutAction (action 4)', () => {
     it('action map includes 4', () => {
       const router = buildRouterStub();
       const mgr = new CapybaraActionsManager(router);
-      expect(mgr.getAvailableActions()).to.deep.equal([0, 1, 2, 3, 4, 6, 51, 52]);
+      expect(mgr.getAvailableActions()).to.deep.equal([0, 1, 2, 3, 4, 6, 7, 51, 52]);
     });
   });
 });
