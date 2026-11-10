@@ -46,6 +46,10 @@ function amountToIntegerString(amount) {
  *   recordedAt?: string,
  *   comment?: string,
  *   operationId?: string,
+ *   txHash?: string,
+ *   system?: string,
+ *   subject?: string,
+ *   violations?: Array<{ code: string, message: string }>,
  * }} params
  * @returns {Promise<{ filePath: string, event: Record<string, unknown> }>}
  */
@@ -107,6 +111,18 @@ async function appendAdvanceEvent(params) {
     }
     if (params.operationId != null) {
       event.operation_id = params.operationId;
+    }
+    if (params.txHash != null) {
+      event.tx_hash = String(params.txHash);
+    }
+    if (params.system != null) {
+      event.system = params.system;
+    }
+    if (params.subject != null) {
+      event.subject = params.subject;
+    }
+    if (Array.isArray(params.violations) && params.violations.length > 0) {
+      event.violations = params.violations;
     }
     event.remainder_after = projectAdvanceRemainder([...events, event], advanceId).toString();
     await fs.appendFile(filePath, `${JSON.stringify(event)}\n`, 'utf8');

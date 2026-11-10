@@ -7,6 +7,7 @@ const ActivityPayoutAction = require('./ActivityPayoutAction');
 const DeployCapybaraTokenAction = require('./DeployCapybaraTokenAction');
 const MintCapybaraTokenAction = require('./MintCapybaraTokenAction');
 const { DebtLedgerAction } = require('./DebtLedgerAction');
+const { AdvanceLedgerAction } = require('./AdvanceLedgerAction');
 const {
   loadCapybaraTokenArtifact,
   getDeployerWallet,
@@ -34,6 +35,7 @@ class CapybaraActionsManager {
       [3, () => this.action3ChargeToPool()],
       [4, () => this.action4ActivityPayout()],
       [6, () => this.action6DebtLedger()],
+      [7, () => this.action7AdvanceLedger()],
       [51, () => this.action51Deploy()],
       [52, () => this.action52Mint()],
     ]);
@@ -131,6 +133,16 @@ class CapybaraActionsManager {
   }
 
   /**
+   * Advance ledger (action 7). settle is not this action.
+   * @returns {Promise<object>}
+   */
+  async action7AdvanceLedger() {
+    this._warnGflRealityBeforeWrite();
+    const action = new AdvanceLedgerAction(this.router);
+    return action.execute();
+  }
+
+  /**
    * @param {number} actionNumber
    * @returns {Promise<object>}
    */
@@ -163,6 +175,7 @@ module.exports = {
   DeployCapybaraTokenAction,
   MintCapybaraTokenAction,
   DebtLedgerAction,
+  AdvanceLedgerAction,
   GFL_REALITY_BANNER,
   loadCapybaraTokenArtifact,
   getDeployerWallet,

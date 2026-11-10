@@ -198,11 +198,34 @@ function resolveChildAdvanceLimits(loaded, child, env = {}) {
   return merged;
 }
 
+/**
+ * An amount cap is human whole CAPY. Compare it as token raw.
+ * `disabled` and `maxOpenAdvances` stay as resolved.
+ * @param {{
+ *   maxOutstanding: { kind: string, amount?: bigint },
+ *   maxOpenAdvances: { kind: string, amount?: bigint },
+ * }} limits
+ * @param {number} decimals
+ * @returns {object}
+ */
+function scaleAdvanceOutstandingToRaw(limits, decimals) {
+  const cap = limits.maxOutstanding;
+  if (!cap || cap.kind !== 'amount' || cap.amount == null) {
+    return limits;
+  }
+  const factor = 10n ** BigInt(decimals);
+  return {
+    ...limits,
+    maxOutstanding: { kind: 'amount', amount: cap.amount * factor },
+  };
+}
+
 module.exports = {
   WORKING_LIMITS_PATH,
   EXAMPLE_LIMITS_PATH,
   ADVANCE_LIMIT_ENV,
   loadAdvanceLimitsFile,
   resolveChildAdvanceLimits,
+  scaleAdvanceOutstandingToRaw,
   limitsError,
 };

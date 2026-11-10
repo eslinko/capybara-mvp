@@ -10,7 +10,9 @@
 const logger = require('../packages/core/src/lib/infrastructure/Logger');
 const CapybaraRouter = require('../packages/core/src/CapybaraRouter');
 const { exitCodeForDebtError } = require('../packages/core/src/actions/DebtLedgerAction');
+const { exitCodeForAdvanceError } = require('../packages/core/src/actions/AdvanceLedgerAction');
 const { formatHumanBlock } = require('../packages/core/src/debt/debtStatusHuman');
+const { formatAdvanceHumanBlock } = require('../packages/core/src/advance/advanceStatusHuman');
 
 async function main() {
   const logLevel = process.env.LOG_LEVEL || (process.env.DEBUG ? 'debug' : 'info');
@@ -33,11 +35,12 @@ async function main() {
     process.exit(1);
   }
 
-  if (action === 6) {
+  if (action === 6 || action === 7) {
     const wallet = process.env.CAPYBARA_WALLET;
     const walletKey = wallet === undefined || wallet === null ? '' : String(wallet).trim().toLowerCase();
+    const label = action === 7 ? 'action 7' : 'action 6';
     if (walletKey !== 'tristan' && walletKey !== 'bastian') {
-      logger.error('CAPYBARA_WALLET must be tristan or bastian for action 6');
+      logger.error(`CAPYBARA_WALLET must be tristan or bastian for ${label}`);
       process.exit(1);
     }
   }
@@ -68,6 +71,11 @@ async function main() {
       const human = formatHumanBlock(result);
       if (human) process.stderr.write(human);
     }
+    if (action === 7 && result && (result.op === 'summary' || result.op === 'show')) {
+      process.stdout.write(`${JSON.stringify(result)}\n`);
+      const human = formatAdvanceHumanBlock(result);
+      if (human) process.stderr.write(human);
+    }
   } catch (error) {
     if (error.message && error.message.includes('Unknown Capybara action')) {
       logger.error(error.message);
@@ -76,6 +84,9 @@ async function main() {
     }
     if (action === 6) {
       process.exit(exitCodeForDebtError(error));
+    }
+    if (action === 7) {
+      process.exit(exitCodeForAdvanceError(error));
     }
     process.exit(1);
   }
