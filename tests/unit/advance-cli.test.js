@@ -82,13 +82,13 @@ describe('advance action 7', () => {
     } catch (error) {
       expect(error.message).to.equal('Unknown Capybara action: 5. use 51 or 52');
     }
-    const ledger = action({ CAPYBARA_WALLET: 'tristan', CAPYBARA_ADVANCE_OP: 'settle' });
+    const ledger = action({ CAPYBARA_WALLET: 'tristan', CAPYBARA_ADVANCE_OP: 'reconcile' });
     try {
       await ledger.execute();
-      expect.fail('settle should throw');
+      expect.fail('reconcile should throw');
     } catch (error) {
-      expect(error.message).to.include('unknown CAPYBARA_ADVANCE_OP: settle');
-      expect(error.message).to.include('issue, forgive, summary, show');
+      expect(error.message).to.include('unknown CAPYBARA_ADVANCE_OP: reconcile');
+      expect(error.message).to.include('issue, forgive, settle, summary, show');
     }
   });
 
