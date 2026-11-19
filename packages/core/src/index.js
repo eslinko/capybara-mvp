@@ -6,4 +6,5 @@ module.exports = {
   CAPYBARA_ROOT: require('./env-path').CAPYBARA_ROOT,
   familyCatalog: require('./family-catalog'),
   membership: require('./membership'),
+  roleGate: require('./roleGate'),
 };

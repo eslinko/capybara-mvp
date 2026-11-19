@@ -14,6 +14,7 @@ const {
   assertGflOrMockSimulate,
   confirmGflReality,
 } = require('../contract-ops');
+const { runWithRoleGate, CAPABILITIES } = require('../roleGate');
 
 const GFL_REALITY_BANNER =
   '⚠️ БОЕВОЙ РЕЖИМ: CAPY_MODE=gfl_reality — реальные переводы $CAPY включены!';
@@ -133,7 +134,34 @@ class CapybaraActionsManager {
   }
 
   /**
-   * Advance ledger (action 7). settle is not this action.
+   * Thin RoleGate harness (ROLE-02): run action 6 only after allow.
+   * Default capability = REQ-03 §3 `debt`. Existing action6 path unchanged.
+   *
+   * @param {{
+   *   actor: object,
+   *   resourceScope?: object,
+   *   familyMemberships?: object[],
+   *   capabilityId?: string
+   * }} gateInput
+   * @returns {Promise<object>}
+   */
+  async action6DebtLedgerGated(gateInput) {
+    const capabilityId =
+      (gateInput && gateInput.capabilityId) || CAPABILITIES.DEBT;
+    return runWithRoleGate(
+      {
+        actor: gateInput && gateInput.actor,
+        capabilityId,
+        resourceScope: gateInput && gateInput.resourceScope,
+        familyMemberships: gateInput && gateInput.familyMemberships,
+      },
+      () => this.action6DebtLedger()
+    );
+  }
+
+  /**
+   * Advance ledger (action 7): issue / forgive / settle / summary / show.
+   * Embedded ADVANCE_ID clawback after payout lives on action 4, not here.
    * @returns {Promise<object>}
    */
   async action7AdvanceLedger() {
