@@ -5,6 +5,10 @@ const { ROLES, ROLE_SET, isRole, assertRole } = require('./roles');
 const { buildActorContext } = require('./actorContext');
 const { allowedResourceSet } = require('./allowedResources');
 const { normalizeAddress } = require('./normalize');
+const {
+  buildAttributionPayload,
+  resolveValidatedBy,
+} = require('./attribution');
 
 module.exports = {
   MembershipStore,
@@ -15,4 +19,6 @@ module.exports = {
   buildActorContext,
   allowedResourceSet,
   normalizeAddress,
+  buildAttributionPayload,
+  resolveValidatedBy,
 };

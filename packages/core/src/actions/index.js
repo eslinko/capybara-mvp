@@ -104,6 +104,43 @@ class CapybaraActionsManager {
   }
 
   /**
+   * Thin RoleGate harness (ROLE-03): run action 4 only after allow,
+   * threading ActorContext into ActivityPayout attribution.
+   *
+   * @param {{
+   *   actor: object,
+   *   resourceScope?: object,
+   *   familyMemberships?: object[],
+   *   capabilityId?: string,
+   *   payoutOptions?: object
+   * }} gateInput
+   * @returns {Promise<object>}
+   */
+  async action4ActivityPayoutGated(gateInput) {
+    const capabilityId =
+      (gateInput && gateInput.capabilityId) ||
+      CAPABILITIES.PAYOUT_FIXED_EDU_DAILY;
+    const actor = gateInput && gateInput.actor;
+    const payoutOptions = (gateInput && gateInput.payoutOptions) || {};
+    return runWithRoleGate(
+      {
+        actor,
+        capabilityId,
+        resourceScope: gateInput && gateInput.resourceScope,
+        familyMemberships: gateInput && gateInput.familyMemberships,
+      },
+      () => {
+        this._warnGflRealityBeforeWrite();
+        const payout = new ActivityPayoutAction(this.router, {
+          ...payoutOptions,
+          actor,
+        });
+        return payout.execute();
+      }
+    );
+  }
+
+  /**
    * Deploy CapybaraToken (action 51). Mock does not broadcast.
    * @returns {Promise<object>}
    */

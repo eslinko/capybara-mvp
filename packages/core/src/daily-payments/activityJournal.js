@@ -53,7 +53,7 @@ function isPositivePayoutAmount(amount) {
  *   metricDef: object,
  *   value: unknown,
  *   direction: string,
- *   validatedBy?: string,
+ *   validatedBy?: string | { membershipId: string, role: string, address: string },
  *   ts?: string,
  *   mode: 'mock'|'gfl_reality'|string,
  * }} fields

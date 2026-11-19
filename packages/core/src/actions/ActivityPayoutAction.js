@@ -13,6 +13,7 @@ const { parseAmountHuman } = require('../charge-pool/splitAllocation');
 const { formatAmountHuman } = require('./SweepToParentAction');
 const { resolveLaunchedBy } = require('../runtimeContext');
 const { AdvanceLedgerAction } = require('./AdvanceLedgerAction');
+const { resolveValidatedBy } = require('../membership/attribution');
 
 const SECTION_TITLE = '🦫 Capybara · Выплаты (activity payout)';
 
@@ -162,12 +163,20 @@ class ActivityPayoutAction {
    *   advanceId?: string,
    *   advanceRoot?: string,
    *   balanceFn?: (child: string) => Promise<bigint>|bigint,
+   *   actor?: {
+   *     membershipId: string,
+   *     role: string,
+   *     address: string,
+   *     familyId?: string,
+   *     userId?: string
+   *   }|null,
    * }} [options]
    */
   constructor(router, options = {}) {
     this.router = router;
     this.logger = router.logger;
     const fromEnv = parseActivityPayoutEnv();
+    this.actor = options.actor !== undefined ? options.actor : null;
     this.walletName = options.walletName ?? fromEnv.walletName;
     this.system = options.system ?? fromEnv.system;
     this.level = options.level ?? fromEnv.level;
@@ -367,7 +376,7 @@ class ActivityPayoutAction {
         metricDef,
         value: String(this.metricValue).trim(),
         direction,
-        validatedBy: 'parent',
+        validatedBy: resolveValidatedBy(this.actor),
         mode: capyMode,
       },
       payout: wantsPayout
@@ -476,4 +485,5 @@ module.exports = ActivityPayoutAction;
 module.exports.SECTION_TITLE = SECTION_TITLE;
 module.exports.parseActivityPayoutEnv = parseActivityPayoutEnv;
 module.exports.resolveActivityPayoutAmount = resolveActivityPayoutAmount;
+module.exports.resolveValidatedBy = resolveValidatedBy;
 module.exports.CHILD_WALLETS = CHILD_WALLETS;
