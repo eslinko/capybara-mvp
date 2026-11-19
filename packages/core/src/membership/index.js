@@ -9,6 +9,15 @@ const {
   buildAttributionPayload,
   resolveValidatedBy,
 } = require('./attribution');
+const {
+  DEFAULT_FAMILY_ID,
+  ADAPTER_WALLETS,
+  WALLET_TO_ROLE,
+  membershipIdForWallet,
+  seedMembershipsFromWalletNames,
+  resolveActorContextFromAdapter,
+  resolveActorContextFromEnvWallet,
+} = require('./walletRegistryAdapter');
 
 module.exports = {
   MembershipStore,
@@ -21,4 +30,11 @@ module.exports = {
   normalizeAddress,
   buildAttributionPayload,
   resolveValidatedBy,
+  DEFAULT_FAMILY_ID,
+  ADAPTER_WALLETS,
+  WALLET_TO_ROLE,
+  membershipIdForWallet,
+  seedMembershipsFromWalletNames,
+  resolveActorContextFromAdapter,
+  resolveActorContextFromEnvWallet,
 };
