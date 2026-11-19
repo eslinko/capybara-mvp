@@ -109,6 +109,15 @@ parent-ключ нужен для выплат в action 2). Неизвестн�
 возвращает детей без `parent` (`['tristan','bastian']`) — используется action 3 для режима `all`
 ([WalletRegistry.js:74](../../packages/core/src/WalletRegistry.js#L74)).
 
+**Compatibility adapter (ROLE-04 / tech debt):**  
+[`packages/core/src/membership/walletRegistryAdapter.js`](../../packages/core/src/membership/walletRegistryAdapter.js)
+maps legacy names `parent`|`tristan`|`bastian` + config addresses → in-memory Membership /
+ActorContext for RoleGate when Membership persistence is Absent. Prefer Membership-backed actor
+when Present; adapter is fallback only. `WalletRegistry.resolve` stays the address/key resolver
+(no custody change). **Deprecation:** temporary dual path — removal date **Unknown** (after
+identity runtime / Phase 2). Do not leave two forever worlds (ungated CLI vs gated). Do not delete
+`.env` wallet keys in this wave.
+
 ## 8. Действия
 
 ### Action 0 — health check (read-only)
