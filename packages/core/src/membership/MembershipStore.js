@@ -157,6 +157,46 @@ class MembershipStore {
 
   /**
    * @param {string} address
+   * @returns {object[]}
+   */
+  listMembershipsByAddress(address) {
+    const addr = normalizeAddress(address);
+    return [...this._memberships.values()]
+      .filter((m) => m.address === addr)
+      .map((m) => ({ ...m }));
+  }
+
+  /**
+   * Bind Supabase Auth userId onto an existing membership (AUTH-03 link path).
+   * Role remains immutable; userId may be set once or confirmed identical.
+   *
+   * @param {string} membershipId
+   * @param {string} userId
+   * @returns {object}
+   */
+  bindUserId(membershipId, userId) {
+    const id = requireId(membershipId, 'membershipId');
+    const uid = requireId(userId, 'userId');
+    const row = this._memberships.get(id);
+    if (!row) {
+      const err = new Error(`Unknown membershipId: ${id}`);
+      err.code = 'EMEMBERSHIP_UNKNOWN';
+      throw err;
+    }
+    if (row.userId && row.userId !== uid) {
+      const err = new Error(
+        `Membership ${id} already bound to userId "${row.userId}"; cannot bind "${uid}"`,
+      );
+      err.code = 'EMEMBERSHIP_USERID_CONFLICT';
+      throw err;
+    }
+    row.userId = uid;
+    this._memberships.set(id, row);
+    return { ...row };
+  }
+
+  /**
+   * @param {string} address
    * @returns {'parent' | 'child' | null}
    */
   getRoleForAddress(address) {
