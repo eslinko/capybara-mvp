@@ -16,7 +16,12 @@ const { normalizeAddress, requireId } = require('./normalize');
  */
 class MembershipStore {
   constructor() {
-    /** @type {Map<string, { id: string, label?: string }>} */
+    /** @type {Map<string, {
+     *   id: string,
+     *   label?: string,
+     *   poolAddress?: string,
+     *   bootstrapped?: boolean
+     * }>} */
     this._families = new Map();
     /** @type {Map<string, {
      *   id: string,
@@ -51,7 +56,12 @@ class MembershipStore {
 
   /**
    * @param {string} familyId
-   * @returns {{ id: string, label?: string } | null}
+   * @returns {{
+   *   id: string,
+   *   label?: string,
+   *   poolAddress?: string,
+   *   bootstrapped?: boolean
+   * } | null}
    */
   getFamily(familyId) {
     const family = this._families.get(requireId(familyId, 'familyId'));
@@ -59,10 +69,63 @@ class MembershipStore {
   }
 
   /**
-   * @returns {{ id: string, label?: string }[]}
+   * @returns {{
+   *   id: string,
+   *   label?: string,
+   *   poolAddress?: string,
+   *   bootstrapped?: boolean
+   * }[]}
    */
   listFamilies() {
     return [...this._families.values()].map((f) => ({ ...f }));
+  }
+
+  /**
+   * Logical pool identity on family (AUTH-04) — in-memory only; no invent DDL.
+   *
+   * @param {string} familyId
+   * @param {string} poolAddress
+   * @returns {object}
+   */
+  setPoolIdentity(familyId, poolAddress) {
+    const id = requireId(familyId, 'familyId');
+    const family = this._families.get(id);
+    if (!family) {
+      const err = new Error(`Unknown familyId: ${id}`);
+      err.code = 'EMEMBERSHIP_UNKNOWN_FAMILY';
+      throw err;
+    }
+    family.poolAddress = normalizeAddress(poolAddress);
+    this._families.set(id, family);
+    return { ...family };
+  }
+
+  /**
+   * @param {string} familyId
+   * @returns {boolean}
+   */
+  isBootstrapped(familyId) {
+    const family = this._families.get(requireId(familyId, 'familyId'));
+    return Boolean(family && family.bootstrapped);
+  }
+
+  /**
+   * Mark family as live-bootstrapped (second bootstrap must reject).
+   *
+   * @param {string} familyId
+   * @returns {object}
+   */
+  markBootstrapped(familyId) {
+    const id = requireId(familyId, 'familyId');
+    const family = this._families.get(id);
+    if (!family) {
+      const err = new Error(`Unknown familyId: ${id}`);
+      err.code = 'EMEMBERSHIP_UNKNOWN_FAMILY';
+      throw err;
+    }
+    family.bootstrapped = true;
+    this._families.set(id, family);
+    return { ...family };
   }
 
   /**

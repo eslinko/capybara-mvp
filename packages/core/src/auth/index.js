@@ -1,11 +1,12 @@
 'use strict';
 
 /**
- * Capybara auth edge (AUTH-01…03).
+ * Capybara auth edge (AUTH-01…04).
  *
  * CLI residual: DualAuthGate product AC-A01 is for host/modules under test.
  * CLI paths that omit DualAuthGate remain ungated coexistence residual —
  * do not claim CLI dual-auth Done.
+ * Bootstrap Railway live deploy = residual; modules are host-agnostic.
  */
 
 const { ChallengeStore } = require('./ChallengeStore');
@@ -32,6 +33,11 @@ const {
 const { resolveMembershipForSession } = require('./resolveMembershipForSession');
 const { decideDualAuth, dualAuthGate } = require('./dualAuthGate');
 const { runWithDualAuthThenRoleGate } = require('./runWithDualAuthThenRoleGate');
+const { assertBootstrapInput } = require('./assertBootstrapInput');
+const {
+  bootstrapPoolAndFounder,
+  assertProofMatchesAddress,
+} = require('./bootstrapPoolAndFounder');
 
 module.exports = {
   ChallengeStore,
@@ -54,4 +60,7 @@ module.exports = {
   decideDualAuth,
   dualAuthGate,
   runWithDualAuthThenRoleGate,
+  assertBootstrapInput,
+  bootstrapPoolAndFounder,
+  assertProofMatchesAddress,
 };
