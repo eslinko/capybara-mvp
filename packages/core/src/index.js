@@ -7,4 +7,5 @@ module.exports = {
   familyCatalog: require('./family-catalog'),
   membership: require('./membership'),
   roleGate: require('./roleGate'),
+  auth: require('./auth'),
 };
