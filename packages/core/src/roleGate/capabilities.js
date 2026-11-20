@@ -23,6 +23,14 @@ const CAPABILITIES = Object.freeze({
 /** Synthetic id — must always deny (AC-R08). */
 const ROLE_MUTATION_CAPABILITY = 'membership.change_role';
 
+/** Synthetic deny-always ids (AC-C05) — family product never allows mint/deploy. */
+const TOKEN_MINT_CAPABILITY = 'token.mint';
+const TOKEN_DEPLOY_CAPABILITY = 'token.deploy';
+
+const CATALOG_DENY_ALWAYS_CAPABILITIES = Object.freeze(
+  new Set([TOKEN_MINT_CAPABILITY, TOKEN_DEPLOY_CAPABILITY]),
+);
+
 /**
  * Role allow table for §3 rows.
  * `true` = role may invoke (resource scope still applies when ids present).
@@ -62,6 +70,17 @@ function isRoleMutationCapability(capabilityId) {
 }
 
 /**
+ * @param {string} capabilityId
+ * @returns {boolean}
+ */
+function isCatalogDenyAlwaysCapability(capabilityId) {
+  return (
+    typeof capabilityId === 'string' &&
+    CATALOG_DENY_ALWAYS_CAPABILITIES.has(capabilityId)
+  );
+}
+
+/**
  * @param {'parent'|'child'} role
  * @param {string} capabilityId
  * @returns {boolean}
@@ -75,8 +94,12 @@ function roleAllowsCapability(role, capabilityId) {
 module.exports = {
   CAPABILITIES,
   ROLE_MUTATION_CAPABILITY,
+  TOKEN_MINT_CAPABILITY,
+  TOKEN_DEPLOY_CAPABILITY,
+  CATALOG_DENY_ALWAYS_CAPABILITIES,
   ALLOW_BY_ROLE,
   isKnownCapability,
   isRoleMutationCapability,
+  isCatalogDenyAlwaysCapability,
   roleAllowsCapability,
 };

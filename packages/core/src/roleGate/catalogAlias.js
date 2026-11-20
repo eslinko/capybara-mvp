@@ -19,7 +19,7 @@ const {
 
 /**
  * CatalogAlias resolve — REQ-06 §3 / policy id → coarse RoleGate id | unmapped | deny-always.
- * Does **not** expand ALLOW_BY_ROLE. Deny-always mint/deploy reserved for CAT-02 wire.
+ * Does **not** expand ALLOW_BY_ROLE. Deny-always mint/deploy checked before isKnownCapability.
  *
  * @param {unknown} capabilityId
  * @returns {CatalogAliasResult}

@@ -1,6 +1,10 @@
 'use strict';
 
-const { CAPABILITIES } = require('./capabilities');
+const {
+  CAPABILITIES,
+  TOKEN_MINT_CAPABILITY,
+  TOKEN_DEPLOY_CAPABILITY,
+} = require('./capabilities');
 
 /**
  * AC-C06 successor path: documented seed alias map (arch-01 / REQ §0).
@@ -49,11 +53,11 @@ const CATALOG_NON_ALIASED = Object.freeze(
 );
 
 /**
- * Deny-always ids (AC-C05) — kind reserved; wire in CAT-02.
+ * Deny-always ids (AC-C05) — alias kind before isKnownCapability; RoleGate decide also denies.
  * @type {ReadonlySet<string>}
  */
 const CATALOG_DENY_ALWAYS = Object.freeze(
-  new Set(['token.mint', 'token.deploy']),
+  new Set([TOKEN_MINT_CAPABILITY, TOKEN_DEPLOY_CAPABILITY]),
 );
 
 /**

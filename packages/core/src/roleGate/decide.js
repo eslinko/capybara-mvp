@@ -4,6 +4,7 @@ const { allowedResourceSet } = require('../membership/allowedResources');
 const {
   isKnownCapability,
   isRoleMutationCapability,
+  isCatalogDenyAlwaysCapability,
   roleAllowsCapability,
 } = require('./capabilities');
 
@@ -37,6 +38,10 @@ function decide(input) {
 
   if (isRoleMutationCapability(capabilityId)) {
     return { outcome: 'deny', reason: 'role_mutation' };
+  }
+
+  if (isCatalogDenyAlwaysCapability(capabilityId)) {
+    return { outcome: 'deny', reason: 'deny_always' };
   }
 
   if (!isKnownCapability(capabilityId)) {
