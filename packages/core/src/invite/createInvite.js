@@ -63,6 +63,9 @@ function assertNoAddressRoleConflict(input) {
  *
  * Wire order matches AUTH-03: DualAuth → RoleGate → effect (no merge into capabilities.js).
  *
+ * **CLI residual:** product gate AC claimed here under test; CLI that bypasses createInvite
+ * is coexistence residual — see `INVITE_CLI_RESIDUAL_NOTE` in invite/index.js.
+ *
  * @param {{
  *   inviteStore: import('./InviteStore'),
  *   membershipStore: import('../membership/MembershipStore'),
