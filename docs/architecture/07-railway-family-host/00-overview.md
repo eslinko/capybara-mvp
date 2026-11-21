@@ -64,17 +64,20 @@ See siblings. Summary: packaging pack **applied**; live proof = remote health; l
 
 ## Coexistence with as-is
 
-- CLI: [`package.json`](../../../package.json) `cli` script Present — operator coexistence.  
-- HTTP server / Dockerfile: **Absent**.  
+- CLI: [`package.json`](../../../package.json) `cli` script Present — operator coexistence (unchanged by HOST-03).  
+- HTTP server: **Present** (`host/` + `npm start`, HOST-01).  
+- Dockerfile / `railway.toml`: **Present** (HOST-02).  
+- Live Railway: project **Capybara** + service **host** + remote `/health` OK (HOST-03) — see [`03-env-verify-deploy-residual.md`](./03-env-verify-deploy-residual.md).  
+- DualAuth live = Phase 2 residual (not claimed Done).  
 - AUTH/ROLE/INV/CAT modules Present in-process; Phase 1 gate does not require gated family calls.  
 - Do not revive Express CRUD as product API (ROADMAP superseded).
 
 ## Open questions
 
-- U1: Exact host entry path (`host/` vs `packages/host` — TBD implement; name ≠ create).  
-- U2: Docker Node base image / version pin.  
-- U3: Commit `railway.toml` vs dashboard-only + Dockerfile.
+- U1: Exact host entry path — resolved: `capybara/host/`.  
+- U2: Docker Node base — `node:20-alpine` (HOST-02 Dockerfile).  
+- U3: `railway.toml` committed (HOST-02); Railway notes Config-as-Code deprecation toward `.railway/railway.ts` (ops follow-up, not invent AC).
 
 ## Explicit Not in this doc
 
-NEW STORY keys · NEW pkg · P3 · product code · Dockerfile stubs on disk · Railway MCP create as Done · DualAuth HTTP · MCP/Skill · invent multi-family fleet.
+NEW STORY keys · invent multi-family fleet · DualAuth HTTP product · MCP/Skill ChatGPT.
