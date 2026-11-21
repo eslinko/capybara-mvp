@@ -1,0 +1,21 @@
+# Thin host image (HOST-02). Exclude secrets and non-runtime trees (AC-H02).
+.git
+.gitignore
+.env
+.env.*
+node_modules
+npm-debug.log*
+.DS_Store
+artifacts
+cache
+logs
+tests
+contracts
+cli
+scripts
+packages
+config
+docs
+hardhat.config.js
+LICENSE
+*.md

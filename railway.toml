@@ -1,0 +1,12 @@
+# Thin Railway wiring for Capybara host (HOST-02 · arch DP6-C).
+# Secrets / PORT live in Railway variables — not in this file (AC-H02).
+# Live remote health proof = HOST-03 (out of scope here).
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "npm start"
+healthcheckPath = "/health"
+restartPolicyType = "ON_FAILURE"
