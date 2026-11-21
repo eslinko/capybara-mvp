@@ -29,6 +29,16 @@ Image carries **host entry + runtime deps**, not «unit-test tree as production 
 
 One Railway **project** named Capybara + **one** host **service** (AC-H06). Per-family multi-service = later note (arch-04), not Phase 1 AC invent.
 
+## AC-H04 honesty (HOST-02)
+
+**Green `cd capybara && npm test` / hardhat alone does not count as Phase 1 host Done.**
+
+What counts toward packaging Done (this story): Dockerfile Present with production `CMD`/`npm start`; thin `railway.toml`; image build/run smoke that can hit `/health` with runtime `PORT` only.
+
+What still does **not** close Phase 1 host (REQ AC-H01 / HOST-03): live Railway remote `/health` proof.
+
+See also: [`03-env-verify-deploy-residual.md`](./03-env-verify-deploy-residual.md) §Verify surfaces.
+
 ## Not in this doc
 
-Writing Dockerfile body on disk · Railway MCP create-project.
+Railway MCP create-project · invent multi-family fleet.
