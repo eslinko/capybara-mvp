@@ -7,6 +7,7 @@
     "packages/*"
   ],
   "scripts": {
+    "start": "node host/start.js",
     "test": "mocha 'tests/unit/**/*.test.js' --config tests/.mocharc.json",
     "cli": "node cli/capybara.js"
   },
