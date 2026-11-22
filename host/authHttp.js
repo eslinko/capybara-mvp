@@ -1,12 +1,16 @@
 'use strict';
 
 /**
- * Identity HTTP edge (EDGE-01) — `/auth/*` on the same host process as `/health`.
- * U1: this module · U2: /auth/{challenge,verify,session,logout}
+ * Identity HTTP edge (EDGE-01/02) — `/auth/*` on the same host process as `/health`.
+ * U1: this module · U2: /auth/{challenge,verify,session,logout,bootstrap}
  *
  * Production keyMap (arch-08): SUPABASE_URL, SUPABASE_SECRET_KEY
  * (+ optional SUPABASE_SERVICE_ROLE_KEY alias), CAPY_BEARER_SECRET.
  * Missing classes → fail-closed on identity routes only (AC-I05: health stays open).
+ *
+ * Bootstrap (EDGE-02 / AC-I04): pool + parent proofs; defaults from distinct
+ * CAPY_POOL_ADDRESS / PARENT_ADDRESS; familyId generated when omitted (U4).
+ * MembershipStore in-memory residual (redeploy → re-bootstrap; EDGE-04 pointer).
  *
  * Live `@supabase/supabase-js` = REQ-09 residual; default Auth port = memory double.
  * Unit green ≠ Phase 2 Done (AC-I06).
@@ -23,8 +27,10 @@ const {
   issueBearerSession,
   validateBearer,
   logoutBearer,
+  bootstrapPoolAndFounder,
   authError,
 } = require('../packages/core/src/auth');
+const { MembershipStore } = require('../packages/core/src/membership');
 
 /** @type {{ supabaseUrl: string, supabaseKey: string, bearerSecret: string }} */
 const PRODUCTION_AUTH_KEY_MAP = {
@@ -71,6 +77,7 @@ function loadHostAuthEnvConfig(env, keyMap = PRODUCTION_AUTH_KEY_MAP) {
  *   challengeStore?: import('../packages/core/src/auth/ChallengeStore').ChallengeStore,
  *   sessionStore?: import('../packages/core/src/auth/bearerSession').BearerSessionStore,
  *   authPort?: import('../packages/core/src/auth/supabaseAuthPort').SupabaseAuthPort,
+ *   membershipStore?: import('../packages/core/src/membership/MembershipStore'),
  *   keyMap?: typeof PRODUCTION_AUTH_KEY_MAP,
  *   nowMs?: number
  * }} [opts]
@@ -91,8 +98,72 @@ function createAuthRuntime(env = process.env, opts = {}) {
     challenges: opts.challengeStore || new ChallengeStore(),
     sessions: opts.sessionStore || new BearerSessionStore(),
     authPort: opts.authPort || createMemorySupabaseAuthDouble(),
+    membershipStore: opts.membershipStore || new MembershipStore(),
     nowMs: opts.nowMs,
   };
+}
+
+/**
+ * Resolve pool/parent addresses: body overrides, else distinct env fields.
+ * Does not merge CAPY_POOL_ADDRESS into PARENT_ADDRESS (AC-I04 / AC-A06).
+ *
+ * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} env
+ * @param {Record<string, unknown>} body
+ * @returns {{ poolAddress: string | undefined, parentAddress: string | undefined }}
+ */
+function resolveBootstrapAddresses(env, body) {
+  const bag = env || {};
+  const poolFromBody =
+    typeof body.poolAddress === 'string' && body.poolAddress.trim()
+      ? body.poolAddress.trim()
+      : undefined;
+  const parentFromBody =
+    typeof body.parentAddress === 'string' && body.parentAddress.trim()
+      ? body.parentAddress.trim()
+      : undefined;
+  const poolFromEnv =
+    typeof bag.CAPY_POOL_ADDRESS === 'string' && bag.CAPY_POOL_ADDRESS.trim()
+      ? bag.CAPY_POOL_ADDRESS.trim()
+      : undefined;
+  const parentFromEnv =
+    typeof bag.PARENT_ADDRESS === 'string' && bag.PARENT_ADDRESS.trim()
+      ? bag.PARENT_ADDRESS.trim()
+      : undefined;
+  return {
+    poolAddress: poolFromBody || poolFromEnv,
+    parentAddress: parentFromBody || parentFromEnv,
+  };
+}
+
+/**
+ * Accept AddressProof object or challengeId+signature pair (reuse EDGE-01 challenge store).
+ *
+ * @param {ReturnType<typeof createAuthRuntime>} runtime
+ * @param {Record<string, unknown>} body
+ * @param {'pool' | 'parent'} kind
+ * @returns {object}
+ */
+function resolveBootstrapProof(runtime, body, kind) {
+  const proofKey = kind === 'pool' ? 'poolProof' : 'parentProof';
+  const challengeKey = kind === 'pool' ? 'poolChallengeId' : 'parentChallengeId';
+  const signatureKey = kind === 'pool' ? 'poolSignature' : 'parentSignature';
+  const proof = body[proofKey];
+  if (proof && typeof proof === 'object' && !Array.isArray(proof)) {
+    return proof;
+  }
+  const challengeId =
+    typeof body[challengeKey] === 'string' ? body[challengeKey] : '';
+  const signature =
+    typeof body[signatureKey] === 'string' ? body[signatureKey] : '';
+  if (challengeId && signature) {
+    return verifyAddressProof(runtime.challenges, challengeId, signature, {
+      nowMs: runtime.nowMs,
+    });
+  }
+  throw authError(
+    'EAUTH_BOOTSTRAP_MISSING_PROOF',
+    `${proofKey} or ${challengeKey}+${signatureKey} required (AC-I04)`,
+  );
 }
 
 /**
@@ -160,6 +231,9 @@ function mapAuthError(err) {
   if (code === 'EAUTH_ENV_MISSING') {
     return { status: 503, code, message };
   }
+  if (code === 'EAUTH_BOOTSTRAP_REPLAY') {
+    return { status: 409, code, message };
+  }
   if (
     code === 'EAUTH_SESSION_MISSING' ||
     code === 'EAUTH_SESSION_INVALID' ||
@@ -173,6 +247,12 @@ function mapAuthError(err) {
   }
   if (code === 'EAUTH_BIND_FAILED') {
     return { status: 502, code, message };
+  }
+  if (
+    code === 'EAUTH_BOOTSTRAP_MISSING_PROOF' ||
+    code === 'EAUTH_BOOTSTRAP_PROOF_MISMATCH'
+  ) {
+    return { status: 400, code, message };
   }
   return { status: 400, code, message };
 }
@@ -205,7 +285,9 @@ function isAuthPath(pathname) {
     pathname === '/auth/session' ||
     pathname === '/auth/session/' ||
     pathname === '/auth/logout' ||
-    pathname === '/auth/logout/'
+    pathname === '/auth/logout/' ||
+    pathname === '/auth/bootstrap' ||
+    pathname === '/auth/bootstrap/'
   );
 }
 
@@ -271,6 +353,54 @@ async function tryHandleAuthRequest(req, res, runtime) {
         userId: session.userId,
         address: session.address,
         expiresAt: session.expiresAt,
+        // EDGE-02 DP7-A: AddressProof for later POST /auth/bootstrap
+        proof,
+      });
+      return true;
+    }
+
+    if (path === '/auth/bootstrap' && req.method === 'POST') {
+      const config = requireRuntimeConfig(runtime);
+      const body = await readJsonBody(req);
+      const { poolAddress, parentAddress } = resolveBootstrapAddresses(
+        runtime.env,
+        body,
+      );
+      if (!poolAddress || !parentAddress) {
+        throw authError(
+          'EAUTH_BAD_PAYLOAD',
+          'poolAddress/parentAddress required (body or CAPY_POOL_ADDRESS/PARENT_ADDRESS)',
+        );
+      }
+      const poolProof = resolveBootstrapProof(runtime, body, 'pool');
+      const parentProof = resolveBootstrapProof(runtime, body, 'parent');
+      const familyId =
+        typeof body.familyId === 'string' && body.familyId.trim()
+          ? body.familyId.trim()
+          : undefined;
+      const result = await bootstrapPoolAndFounder(
+        {
+          membershipStore: runtime.membershipStore,
+          authPort: runtime.authPort,
+          config,
+          familyId,
+          poolAddress,
+          parentAddress,
+          poolProof,
+          parentProof,
+        },
+        { nowMs: runtime.nowMs },
+      );
+      writeJson(res, 200, {
+        ok: true,
+        familyId: result.family.id,
+        poolAddress: result.poolAddress,
+        parentAddress: result.parentAddress,
+        sameAddress: result.sameAddress,
+        founderMembershipId: result.founderMembership.id,
+        founderRole: result.founderMembership.role,
+        userId: result.userLink.userId,
+        bootstrapped: true,
       });
       return true;
     }
@@ -317,6 +447,8 @@ module.exports = {
   withSupabaseKeyAlias,
   loadHostAuthEnvConfig,
   createAuthRuntime,
+  resolveBootstrapAddresses,
+  resolveBootstrapProof,
   tryHandleAuthRequest,
   isAuthPath,
   extractBearerToken,

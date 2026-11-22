@@ -7,7 +7,7 @@ const { createAuthRuntime, tryHandleAuthRequest } = require('./authHttp');
 /**
  * Create thin Node `http` host server (no Express).
  *
- * Composes GET /health + EDGE-01 `/auth/*` on the same process (`npm start`).
+ * Composes GET /health + `/auth/*` (EDGE-01 session + EDGE-02 bootstrap) on `npm start`.
  *
  * @param {{
  *   env?: NodeJS.ProcessEnv | Record<string, string | undefined>,
@@ -15,6 +15,7 @@ const { createAuthRuntime, tryHandleAuthRequest } = require('./authHttp');
  *   challengeStore?: import('../packages/core/src/auth/ChallengeStore').ChallengeStore,
  *   sessionStore?: import('../packages/core/src/auth/bearerSession').BearerSessionStore,
  *   authPort?: import('../packages/core/src/auth/supabaseAuthPort').SupabaseAuthPort,
+ *   membershipStore?: import('../packages/core/src/membership/MembershipStore'),
  *   nowMs?: number
  * }} [options]
  * @returns {import('http').Server}
@@ -27,6 +28,7 @@ function createHostServer(options = {}) {
       challengeStore: options.challengeStore,
       sessionStore: options.sessionStore,
       authPort: options.authPort,
+      membershipStore: options.membershipStore,
       nowMs: options.nowMs,
     });
 
