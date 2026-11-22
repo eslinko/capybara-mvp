@@ -102,11 +102,12 @@ describe('host entry + health (HOST-01)', () => {
       expect(pkg.scripts.cli).to.match(/cli\/capybara/);
     });
 
-    it('start.js documents Phase 2 DualAuth boundary without implementing it', () => {
+    it('start.js documents Phase 2 DualAuth probe without claiming Phase 2 Done', () => {
       const src = fs.readFileSync(path.join(ROOT, 'host/start.js'), 'utf8');
       expect(src).to.match(/Phase 2/i);
       expect(src).to.match(/DualAuth/i);
-      expect(src).to.match(/not\*?\*? implemented/i);
+      expect(src).to.match(/profile\.self|capabilities/i);
+      expect(src).to.match(/≠ Phase 2 Done|not claimed/i);
       expect(src).to.not.match(/createChallenge|verifyProof|supabaseAuth/i);
     });
   });
