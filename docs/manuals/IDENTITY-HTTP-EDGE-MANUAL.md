@@ -2,7 +2,7 @@
 
 **Profile:** `capybara` · **REQ:** [`../requirements/08-identity-http-edge-on-host.md`](../requirements/08-identity-http-edge-on-host.md)  
 **Architecture:** [`../architecture/08-identity-http-edge-on-host/`](../architecture/08-identity-http-edge-on-host/)  
-**Stories:** EDGE-01…04 · **Host entry:** `npm start` → [`../../host/start.js`](../../host/start.js)
+**Stories:** EDGE-01…06 · **Host entry:** `npm start` → [`../../host/start.js`](../../host/start.js)
 
 This manual is the AC-I07 deliverable. It documents how to bootstrap and verify the identity HTTP edge on the same process as `GET /health`.
 
@@ -38,13 +38,34 @@ Equal hex values are allowed; fields stay distinct (AC-I04 / REQ-04 AC-A05/A06).
 
 Missing auth classes → identity ops fail-closed (typically HTTP 503). `GET /health` stays open and must not echo secrets (AC-I05).
 
-**Residual:** default Auth port is the in-process memory double. Live `@supabase/supabase-js` = REQ-09 — not this manual.
+### 2.1 Local `.env` load (host vs CLI)
+
+**Present (EDGE-05):** [`../../host/start.js`](../../host/start.js) calls [`../../host/loadHostDotenv.js`](../../host/loadHostDotenv.js) on `require.main` **before** `main()` / `resolveListenPort`. Loader reuses CLI path SSOT `CAPYBARA_DOTENV_PATH` + `dotenv` with **no overwrite** of keys already set in `process.env` (platform / Railway win). Missing `.env` → silent continue (image may have no file).
+
+| Entry | How env reaches the process |
+|-------|-----------------------------|
+| Capybara **host** (`npm start` → `host/start.js`) | `loadHostDotenv` → `CAPYBARA_DOTENV_PATH` into `process.env` (no overwrite) · then `main()` |
+| Capybara **CLI** / config | [`../../packages/core/src/config/index.js`](../../packages/core/src/config/index.js) — `dotenv.config({ path: CAPYBARA_DOTENV_PATH })` (unless `CAPYBARA_LAZY_CONFIG=1`) |
+
+**Local start** (from `capybara/` root — fill package `.env` from [`.env.example`](../../.env.example)):
+
+```bash
+npm start
+```
+
+- No `set -a` / `source .env` dance required when package `.env` is Present with `PORT` + auth keyMap.
+- Railway / prod: set the same keys in **platform** env (platform wins over file). `.env` is not baked into the image (HOST packaging).
+- Never dump env/secrets in start logs (AC-H02 / AC-I05).
+
+Cross-app Node start pattern (reference study; residual closed by EDGE-05/06): [`../analysis/analysis-arweave-uploader-node-env-startup-2026-11-22.md`](../analysis/analysis-arweave-uploader-node-env-startup-2026-11-22.md).
+
+**Residual (auth port):** default Auth port is the in-process memory double. Live `@supabase/supabase-js` = REQ-09 — not this manual. Docs / unit green alone ≠ Phase 2 Done (AC-I06).
 
 ---
 
 ## 3. Local flows (EDGE-01…03)
 
-Assume local host with env set and `npm start` listening on `$PORT` (examples use `http://127.0.0.1:$PORT`).
+Assume local host started with `npm start` after package `.env` is filled (`PORT` + auth keyMap — see §2.1; host loads `CAPYBARA_DOTENV_PATH` on entry). Examples use `http://127.0.0.1:$PORT`.
 
 ### 3.1 Session: challenge → verify → session → logout
 
@@ -68,6 +89,31 @@ curl -sS "http://127.0.0.1:${PORT}/auth/session" \
 curl -sS -X POST "http://127.0.0.1:${PORT}/auth/logout" \
   -H "Authorization: Bearer ${TOKEN}"
 ```
+
+**Example** (local `PORT=18080`, address = `CAPY_POOL_ADDRESS` from package `.env`):
+
+```bash
+# 1) Challenge
+curl -sS -X POST "http://127.0.0.1:18080/auth/challenge" \
+  -H 'Content-Type: application/json' \
+  -d '{"address":"0xBd9A51792c36D21Dc203320d7055ED8e305E41Ef"}'
+
+# 2) Sign returned `message` (MetaMask / wallet) → then verify
+curl -sS -X POST "http://127.0.0.1:18080/auth/verify" \
+  -H 'Content-Type: application/json' \
+  -d '{"challengeId":"…","signature":"0x…"}'
+# Response: Bearer `token` + `proof`
+
+# 3) Session
+curl -sS "http://127.0.0.1:18080/auth/session" \
+  -H "Authorization: Bearer ${TOKEN}"
+
+# 4) Logout
+curl -sS -X POST "http://127.0.0.1:18080/auth/logout" \
+  -H "Authorization: Bearer ${TOKEN}"
+```
+
+`challengeId` / `signature` / `TOKEN` — из ответов шагов 1–2.
 
 Product: [`../../host/authHttp.js`](../../host/authHttp.js).
 
