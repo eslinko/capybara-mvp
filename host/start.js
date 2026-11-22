@@ -4,10 +4,10 @@
  * Production host entry — `npm run start` → this file (AC-H03).
  * Not CLI / hardhat / test runners.
  *
- * Same process mounts `/auth/*` (EDGE-01 session + EDGE-02 bootstrap) via createHostServer.
- * DualAuthGate capability probe is **not** implemented here (EDGE-03).
+ * Phase 2: same process mounts `/auth/*` (EDGE-01/02) + DualAuthGate→RoleGate
+ * capability probe `/v1/capabilities/profile.self` (EDGE-03).
  * Live Supabase port = REQ-09 residual. MembershipStore in-memory residual (EDGE-04).
- * Unit green alone ≠ Phase 2 Done (AC-I06).
+ * Unit green alone ≠ Phase 2 Done (AC-I06) — Phase 2 Done not claimed here.
  */
 
 const { createHostServer, resolveListenPort, listenHost } = require('./server');

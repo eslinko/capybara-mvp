@@ -3,11 +3,12 @@
 const http = require('http');
 const { handleHostRequest } = require('./health');
 const { createAuthRuntime, tryHandleAuthRequest } = require('./authHttp');
+const { tryHandleCapabilityProbe } = require('./capabilityProbe');
 
 /**
  * Create thin Node `http` host server (no Express).
  *
- * Composes GET /health + `/auth/*` (EDGE-01 session + EDGE-02 bootstrap) on `npm start`.
+ * Composes GET /health + `/auth/*` (EDGE-01/02) + `/v1/capabilities/profile.self` (EDGE-03).
  *
  * @param {{
  *   env?: NodeJS.ProcessEnv | Record<string, string | undefined>,
@@ -34,6 +35,10 @@ function createHostServer(options = {}) {
 
   return http.createServer((req, res) => {
     Promise.resolve(tryHandleAuthRequest(req, res, runtime))
+      .then((authHandled) => {
+        if (authHandled) return true;
+        return tryHandleCapabilityProbe(req, res, runtime);
+      })
       .then((handled) => {
         if (!handled) {
           handleHostRequest(req, res);
