@@ -21,7 +21,8 @@ function writeHealthResponse(res) {
 }
 
 /**
- * Thin host router — Phase 1: /health only.
+ * Thin host fallback router — `GET /health` open (AC-I05 / AC-H02).
+ * Identity `/auth/*` is handled by `authHttp.js` before this fallback (EDGE-01).
  *
  * @param {import('http').IncomingMessage} req
  * @param {import('http').ServerResponse} res

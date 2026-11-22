@@ -4,8 +4,9 @@
  * Production host entry — `npm run start` → this file (AC-H03).
  * Not CLI / hardhat / test runners.
  *
- * Phase 2 boundary: same process may later mount DualAuth challenge/session
- * handlers on this server. DualAuth is **not** implemented in HOST-01.
+ * Same process mounts EDGE-01 `/auth/*` via createHostServer compose.
+ * DualAuthGate capability probe is **not** implemented here (EDGE-03).
+ * Live Supabase port = REQ-09 residual. Unit green alone ≠ Phase 2 Done (AC-I06).
  */
 
 const { createHostServer, resolveListenPort, listenHost } = require('./server');

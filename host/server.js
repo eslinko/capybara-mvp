@@ -2,17 +2,56 @@
 
 const http = require('http');
 const { handleHostRequest } = require('./health');
+const { createAuthRuntime, tryHandleAuthRequest } = require('./authHttp');
 
 /**
  * Create thin Node `http` host server (no Express).
  *
- * Phase 2 boundary: DualAuth / challenge-session edge may later register on the
- * same process — do **not** implement DualAuth in HOST-01 / Phase 1.
+ * Composes GET /health + EDGE-01 `/auth/*` on the same process (`npm start`).
  *
+ * @param {{
+ *   env?: NodeJS.ProcessEnv | Record<string, string | undefined>,
+ *   authRuntime?: ReturnType<typeof createAuthRuntime>,
+ *   challengeStore?: import('../packages/core/src/auth/ChallengeStore').ChallengeStore,
+ *   sessionStore?: import('../packages/core/src/auth/bearerSession').BearerSessionStore,
+ *   authPort?: import('../packages/core/src/auth/supabaseAuthPort').SupabaseAuthPort,
+ *   nowMs?: number
+ * }} [options]
  * @returns {import('http').Server}
  */
-function createHostServer() {
-  return http.createServer(handleHostRequest);
+function createHostServer(options = {}) {
+  const env = options.env || process.env;
+  const runtime =
+    options.authRuntime ||
+    createAuthRuntime(env, {
+      challengeStore: options.challengeStore,
+      sessionStore: options.sessionStore,
+      authPort: options.authPort,
+      nowMs: options.nowMs,
+    });
+
+  return http.createServer((req, res) => {
+    Promise.resolve(tryHandleAuthRequest(req, res, runtime))
+      .then((handled) => {
+        if (!handled) {
+          handleHostRequest(req, res);
+        }
+      })
+      .catch((err) => {
+        const body = JSON.stringify({
+          ok: false,
+          error: 'EHOST_INTERNAL',
+          message: err && err.message ? String(err.message) : 'host error',
+        });
+        if (!res.headersSent) {
+          res.writeHead(500, {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Content-Length': Buffer.byteLength(body),
+          });
+        }
+        res.end(body);
+      });
+  });
 }
 
 /**
