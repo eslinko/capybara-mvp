@@ -630,6 +630,7 @@ LOG_LEVEL=debug CAPYBARA_ACTION=0 node capybara/cli/capybara.js
 
 ## Related
 
+- Identity HTTP edge (Phase 2 operator): [IDENTITY-HTTP-EDGE-MANUAL.md](./IDENTITY-HTTP-EDGE-MANUAL.md)
 - Эпик сети: [EPIC-SCR-CAPY-EVM](../tasks/epics/EPIC-SCR-CAPY-EVM/EPIC-SCR-CAPY-EVM.md)
 - Зафиксированные ответы: [INTERVIEW-CAPY-EVM-NETWORK-2026-10-14](../tasks/backlog-stories/capybara-evm/INTERVIEW-CAPY-EVM-NETWORK-2026-10-14.md)
 - Техника: [ARCHITECTURE.md](ARCHITECTURE.md)
