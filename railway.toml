@@ -1,9 +1,10 @@
-# Thin Railway wiring for Capybara host (HOST-02 · arch DP6-C).
+# Thin Railway wiring for Capybara host (HOST-02 · EDGE · WPROOF).
 # Secrets / PORT live in Railway variables — not in this file (AC-H02).
-# Git + RAILPACK (no Docker) — Phase 1 host entry via npm start.
+# Dockerfile includes host/ + packages/core (auth requires).
 
 [build]
-builder = "RAILPACK"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 
 [deploy]
 startCommand = "npm start"
