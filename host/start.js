@@ -12,6 +12,7 @@
  */
 
 const { createHostServer, resolveListenPort, listenHost } = require('./server');
+const { describeAuthEnvPresence } = require('./authHttp');
 const { loadHostDotenv } = require('./loadHostDotenv');
 
 function main(env = process.env) {
@@ -23,11 +24,12 @@ function main(env = process.env) {
     return;
   }
 
-  const server = createHostServer();
+  const server = createHostServer({ env });
   return listenHost(server, env)
     .then(() => {
-      // Log port only — never dump env/secrets (AC-H02 / AC-I05).
+      // Port + residual-safe auth class presence — never dump secrets (AC-H02 / AC-I05).
       console.error(`capybara host listening on ${String(env.PORT).trim()}`);
+      console.error(describeAuthEnvPresence(env).line);
       return server;
     })
     .catch((err) => {

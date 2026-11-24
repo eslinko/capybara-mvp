@@ -72,6 +72,39 @@ function loadHostAuthEnvConfig(env, keyMap = PRODUCTION_AUTH_KEY_MAP) {
 }
 
 /**
+ * Residual-safe presence flags for auth env classes (no secret values).
+ *
+ * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
+ * @param {typeof PRODUCTION_AUTH_KEY_MAP} [keyMap]
+ * @returns {{
+ *   authEnvOk: boolean,
+ *   supabaseUrl: 'set' | 'missing',
+ *   supabaseKey: 'set' | 'missing',
+ *   bearerSecret: 'set' | 'missing',
+ *   line: string
+ * }}
+ */
+function describeAuthEnvPresence(env = process.env, keyMap = PRODUCTION_AUTH_KEY_MAP) {
+  const bag = withSupabaseKeyAlias(env || {});
+  const flag = (keyName) => {
+    const v = bag[keyName];
+    return typeof v === 'string' && v.trim() ? 'set' : 'missing';
+  };
+  const supabaseUrl = flag(keyMap.supabaseUrl);
+  const supabaseKey = flag(keyMap.supabaseKey);
+  const bearerSecret = flag(keyMap.bearerSecret);
+  const authEnvOk =
+    supabaseUrl === 'set' && supabaseKey === 'set' && bearerSecret === 'set';
+  const line = [
+    `auth_env_ok=${authEnvOk}`,
+    `supabaseUrl=${supabaseUrl}`,
+    `supabaseKey=${supabaseKey}`,
+    `bearerSecret=${bearerSecret}`,
+  ].join(' ');
+  return { authEnvOk, supabaseUrl, supabaseKey, bearerSecret, line };
+}
+
+/**
  * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
  * @param {{
  *   challengeStore?: import('../packages/core/src/auth/ChallengeStore').ChallengeStore,
@@ -446,6 +479,12 @@ async function tryHandleAuthRequest(req, res, runtime) {
     return true;
   } catch (err) {
     const mapped = mapAuthError(err);
+    if (mapped.code === 'EAUTH_ENV_MISSING') {
+      const presence = describeAuthEnvPresence(runtime.env);
+      console.error(
+        `${req.method || 'UNKNOWN'} ${path} ${mapped.status} ${mapped.code} ${mapped.message} ${presence.line}`,
+      );
+    }
     writeJson(res, mapped.status, {
       ok: false,
       error: mapped.code,
@@ -459,6 +498,7 @@ module.exports = {
   PRODUCTION_AUTH_KEY_MAP,
   withSupabaseKeyAlias,
   loadHostAuthEnvConfig,
+  describeAuthEnvPresence,
   createAuthRuntime,
   resolveBootstrapAddresses,
   resolveBootstrapProof,

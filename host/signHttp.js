@@ -175,7 +175,13 @@ function renderSignClientBrowserJs() {
       });
       var json = await res.json().catch(function () { return {}; });
       if (!res.ok || !json.ok) {
-        setStatus(statusEl, 'Verify failed: ' + (json.error || res.status), true);
+        var code = json.error || res.status;
+        var msg = json.message ? String(json.message) : '';
+        var failLine = 'Verify failed: ' + code + (msg ? ' — ' + msg : '') + ' (HTTP ' + res.status + ')';
+        setStatus(statusEl, failLine, true);
+        try {
+          console.warn('[capy-sign]', { error: code, message: msg || null, status: res.status });
+        } catch (_) {}
         return;
       }
       setStatus(statusEl, 'Verified. Address: ' + (json.address || connected));
