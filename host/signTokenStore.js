@@ -3,7 +3,7 @@
 const crypto = require('crypto');
 
 /**
- * Minimal in-memory SignTokenStore (WPROOF-01 shell; mint API = WPROOF-02).
+ * In-memory SignTokenStore (WPROOF-01 shell + WPROOF-02 mint/result).
  * Token opens challenge only while pending. Redeploy residual: cleared.
  */
 
@@ -18,6 +18,17 @@ class SignTokenStore {
      *   clientEvents: Array<{ type: string, atMs: number }>
      * }>} */
     this._byToken = new Map();
+    /** @type {Map<string, string>} challengeId → signToken (active binding) */
+    this._byChallengeId = new Map();
+    /** Test/inject: next writeOkByChallengeId returns false without mutating */
+    this._failNextWriteOk = false;
+  }
+
+  /**
+   * @param {boolean} flag
+   */
+  setFailNextWriteOk(flag) {
+    this._failNextWriteOk = Boolean(flag);
   }
 
   /**
@@ -33,6 +44,17 @@ class SignTokenStore {
     if (!Number.isFinite(expiresAtMs) || expiresAtMs <= 0) {
       throw new Error('SignTokenStore.create requires expiresAtMs');
     }
+    const existingTok = this._byChallengeId.get(challengeId);
+    if (existingTok) {
+      const existing = this._byToken.get(existingTok);
+      if (existing && existing.resultStatus !== 'ok') {
+        const err = new Error(
+          'SignTokenStore: challengeId already has an active signToken',
+        );
+        err.code = 'ESIGN_CHALLENGE_TOKEN_BOUND';
+        throw err;
+      }
+    }
     const signToken = crypto.randomBytes(16).toString('hex');
     this._byToken.set(signToken, {
       challengeId,
@@ -41,7 +63,22 @@ class SignTokenStore {
       resultStatus: 'pending',
       clientEvents: [],
     });
+    this._byChallengeId.set(challengeId, signToken);
     return signToken;
+  }
+
+  /**
+   * @param {string} challengeId
+   * @param {number} [nowMs]
+   * @returns {null | string}
+   */
+  getTokenByChallengeId(challengeId, nowMs = Date.now()) {
+    const cid = String(challengeId || '').trim();
+    const tok = this._byChallengeId.get(cid);
+    if (!tok) return null;
+    const row = this.get(tok, nowMs);
+    if (!row) return null;
+    return tok;
   }
 
   /**
@@ -77,6 +114,7 @@ class SignTokenStore {
   }
 
   /**
+   * Write result=ok then mark HTML consumed (arch-02 order steps 2–3).
    * @param {string} signToken
    * @param {{ challengeId: string, address?: string }} result
    * @param {number} [nowMs]
@@ -96,6 +134,39 @@ class SignTokenStore {
   }
 
   /**
+   * Resolve token by challengeId and writeOk (verify-success hook).
+   * @param {string} challengeId
+   * @param {{ challengeId: string, address?: string }} result
+   * @param {number} [nowMs]
+   * @returns {boolean}
+   */
+  writeOkByChallengeId(challengeId, result, nowMs = Date.now()) {
+    if (this._failNextWriteOk) {
+      this._failNextWriteOk = false;
+      return false;
+    }
+    const cid = String(challengeId || '').trim();
+    const tok = this._byChallengeId.get(cid);
+    if (!tok) return false;
+    return this.writeOk(tok, result, nowMs);
+  }
+
+  /**
+   * Mark HTML closed without changing /result (residual: mark after write).
+   * @param {string} signToken
+   * @param {number} [nowMs]
+   * @returns {boolean}
+   */
+  markHtmlConsumed(signToken, nowMs = Date.now()) {
+    const key = String(signToken || '').trim().toLowerCase();
+    const stored = this._byToken.get(key);
+    if (!stored) return false;
+    if (nowMs > stored.expiresAtMs && stored.resultStatus !== 'ok') return false;
+    stored.htmlConsumed = true;
+    return true;
+  }
+
+  /**
    * @param {string} signToken
    * @param {number} [nowMs]
    * @returns {null | { status: string, challengeId?: string, address?: string }}
@@ -104,8 +175,8 @@ class SignTokenStore {
     const key = String(signToken || '').trim().toLowerCase();
     const stored = this._byToken.get(key);
     if (!stored) return null;
-    if (nowMs > stored.expiresAtMs && stored.resultStatus !== 'ok') return null;
-    if (nowMs > stored.expiresAtMs && stored.resultStatus === 'ok') return null;
+    // ok readable until expiresAt; then gone (4xx)
+    if (nowMs > stored.expiresAtMs) return null;
     if (stored.resultStatus === 'ok') {
       return {
         status: 'ok',

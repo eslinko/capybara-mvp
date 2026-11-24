@@ -346,6 +346,19 @@ async function tryHandleAuthRequest(req, res, runtime) {
       const session = issueBearerSession(runtime.sessions, link, config, {
         nowMs: runtime.nowMs,
       });
+      // WPROOF-02: after challenge consume — write result=ok (arch-02 order).
+      // Write failure must not undo login; /result stays pending (fail-closed POC).
+      if (runtime.signTokens && typeof runtime.signTokens.writeOkByChallengeId === 'function') {
+        try {
+          runtime.signTokens.writeOkByChallengeId(
+            challengeId,
+            { challengeId, address: session.address },
+            runtime.nowMs,
+          );
+        } catch (_) {
+          // residual: host log only — login already done
+        }
+      }
       writeJson(res, 200, {
         ok: true,
         token: session.token,

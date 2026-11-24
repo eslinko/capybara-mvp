@@ -3,6 +3,9 @@
 const { URL } = require('url');
 const { SignTokenStore } = require('./signTokenStore');
 const { createSignSessionController } = require('./signClient');
+const { issueChallenge } = require('../packages/core/src/auth');
+
+const MINT_SECRET_HEADER = 'x-capy-sign-mint-secret';
 
 /**
  * @param {import('http').ServerResponse} res
@@ -189,16 +192,62 @@ function renderSignClientBrowserJs() {
 }
 
 /**
+ * Parse CAPY_PUBLIC_BASE_URL — absolute HTTPS origin, no trailing slash.
+ * @param {string | undefined} raw
+ * @returns {{ baseUrl: string, hostname: string } | null}
+ */
+function parsePublicBaseUrl(raw) {
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  const trimmed = raw.trim().replace(/\/+$/, '');
+  let parsed;
+  try {
+    parsed = new URL(trimmed);
+  } catch (_) {
+    return null;
+  }
+  if (parsed.protocol !== 'https:') return null;
+  if (parsed.pathname && parsed.pathname !== '/') return null;
+  if (parsed.search || parsed.hash) return null;
+  if (!parsed.hostname) return null;
+  return { baseUrl: trimmed, hostname: parsed.hostname };
+}
+
+/**
+ * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} env
+ * @param {import('http').IncomingMessage} req
+ * @returns {{ ok: true } | { ok: false, status: number, error: string }}
+ */
+function checkMintAuth(env, req) {
+  const secret =
+    env && typeof env.CAPY_SIGN_MINT_SECRET === 'string'
+      ? env.CAPY_SIGN_MINT_SECRET.trim()
+      : '';
+  if (!secret) {
+    return { ok: false, status: 503, error: 'ESIGN_MINT_SECRET_UNSET' };
+  }
+  const header =
+    req.headers && typeof req.headers[MINT_SECRET_HEADER] === 'string'
+      ? String(req.headers[MINT_SECRET_HEADER]).trim()
+      : '';
+  if (!header || header !== secret) {
+    return { ok: false, status: 401, error: 'ESIGN_MINT_UNAUTHORIZED' };
+  }
+  return { ok: true };
+}
+
+/**
  * @param {{
  *   signTokenStore?: SignTokenStore,
  *   challenges?: import('../packages/core/src/auth/ChallengeStore').ChallengeStore,
- *   nowMs?: number | (() => number)
+ *   nowMs?: number | (() => number),
+ *   env?: NodeJS.ProcessEnv | Record<string, string | undefined>
  * }} [opts]
  */
 function createSignRuntime(opts = {}) {
   return {
     signTokens: opts.signTokenStore || new SignTokenStore(),
     challenges: opts.challenges || null,
+    env: opts.env || process.env,
     nowMs:
       typeof opts.nowMs === 'function'
         ? opts.nowMs
@@ -213,6 +262,9 @@ function createSignRuntime(opts = {}) {
 function matchSignPath(pathname) {
   if (pathname === '/sign/client.js') {
     return { kind: 'client_js' };
+  }
+  if (pathname === '/sign/mint' || pathname === '/sign/mint/') {
+    return { kind: 'mint' };
   }
   const mResult = pathname.match(/^\/sign\/([a-fA-F0-9]+)\/result\/?$/);
   if (mResult) return { kind: 'result', signToken: mResult[1].toLowerCase() };
@@ -236,6 +288,78 @@ async function tryHandleSignRequest(req, res, runtime) {
   if (!match) return false;
 
   const now = runtime.nowMs();
+
+  if (match.kind === 'mint') {
+    if (req.method !== 'POST') {
+      writeJson(res, 405, { ok: false, error: 'ESIGN_METHOD' });
+      return true;
+    }
+    const auth = checkMintAuth(runtime.env || {}, req);
+    if (!auth.ok) {
+      writeJson(res, auth.status, { ok: false, error: auth.error });
+      return true;
+    }
+    const base = parsePublicBaseUrl(
+      runtime.env && runtime.env.CAPY_PUBLIC_BASE_URL,
+    );
+    if (!base) {
+      writeJson(res, 503, { ok: false, error: 'ESIGN_PUBLIC_BASE_URL_UNSET' });
+      return true;
+    }
+    if (!runtime.challenges) {
+      writeJson(res, 503, { ok: false, error: 'ESIGN_NO_CHALLENGE_STORE' });
+      return true;
+    }
+    let body;
+    try {
+      body = await readJsonBody(req);
+    } catch (_) {
+      writeJson(res, 400, { ok: false, error: 'ESIGN_BAD_JSON' });
+      return true;
+    }
+    const address = body && typeof body.address === 'string' ? body.address : '';
+    if (!address.trim()) {
+      writeJson(res, 400, { ok: false, error: 'ESIGN_ADDRESS_REQUIRED' });
+      return true;
+    }
+    let issued;
+    try {
+      issued = issueChallenge(runtime.challenges, address, {
+        nowMs: now,
+        domain: base.hostname,
+        uri: `${base.baseUrl}/sign`,
+      });
+    } catch (err) {
+      writeJson(res, 400, {
+        ok: false,
+        error: (err && err.code) || 'ESIGN_ISSUE_CHALLENGE',
+        message: err && err.message ? String(err.message) : 'issue failed',
+      });
+      return true;
+    }
+    let signToken;
+    try {
+      signToken = runtime.signTokens.create({
+        challengeId: issued.challengeId,
+        expiresAtMs: issued.expiresAtMs,
+      });
+    } catch (err) {
+      writeJson(res, 409, {
+        ok: false,
+        error: (err && err.code) || 'ESIGN_TOKEN_CREATE',
+        message: err && err.message ? String(err.message) : 'token create failed',
+      });
+      return true;
+    }
+    writeJson(res, 200, {
+      ok: true,
+      signToken,
+      url: `${base.baseUrl}/sign/${signToken}`,
+      challengeId: issued.challengeId,
+      expiresAt: issued.expiresAt,
+    });
+    return true;
+  }
 
   if (match.kind === 'client_js' && req.method === 'GET') {
     const body = renderSignClientBrowserJs();
@@ -340,4 +464,7 @@ module.exports = {
   renderSignPageHtml,
   matchSignPath,
   createSignSessionController,
+  parsePublicBaseUrl,
+  checkMintAuth,
+  MINT_SECRET_HEADER,
 };

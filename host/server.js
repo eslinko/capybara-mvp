@@ -42,10 +42,15 @@ function createHostServer(options = {}) {
       signTokenStore: options.signTokenStore,
       challenges: runtime.challenges,
       nowMs: options.nowMs,
+      env,
     });
   // Keep challenge store shared for HTML bootstrap.
   if (!signRuntime.challenges) {
     signRuntime.challenges = runtime.challenges;
+  }
+  // WPROOF-02: verify-success → write result=ok via shared SignTokenStore
+  if (!runtime.signTokens) {
+    runtime.signTokens = signRuntime.signTokens;
   }
 
   return http.createServer((req, res) => {
