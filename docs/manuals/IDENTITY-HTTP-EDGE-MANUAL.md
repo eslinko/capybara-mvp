@@ -59,7 +59,7 @@ npm start
 
 Cross-app Node start pattern (reference study; residual closed by EDGE-05/06): [`../analysis/analysis-arweave-uploader-node-env-startup-2026-11-22.md`](../analysis/analysis-arweave-uploader-node-env-startup-2026-11-22.md).
 
-**Residual (auth port):** default Auth port is the in-process memory double. Live `@supabase/supabase-js` = REQ-09 — not this manual. Docs / unit green alone ≠ Phase 2 Done (AC-I06).
+**Auth port (post SBPORT-01…03):** production host selects live port when auth env Present (`resolveAuthPort` in [`../../host/authHttp.js`](../../host/authHttp.js)); missing env fail-closed; units inject memory. **Live Supabase Auth bind proof** (real project `userId` after Sign→verify) = REQ-09 AC-S05 — see [`LIVE-SUPABASE-AUTH-PORT-HONESTY.md`](LIVE-SUPABASE-AUTH-PORT-HONESTY.md). Current bind evidence: **Residual** [`evidence/live-supabase-auth-bind-residual.md`](evidence/live-supabase-auth-bind-residual.md). Docs / unit green alone ≠ Phase 2 / REQ-09 Done (AC-I06 / AC-S05).
 
 ---
 
@@ -207,7 +207,19 @@ If challenge/probe returns unexpected 404/502/empty — document residual; do **
 
 ---
 
-## 6. REQ-10 MetaMask / wallet POC pointer
+## 6. REQ-09 live Supabase bind honesty (pointer)
+
+Live create/link after address proof = **REQ-09** AC-S05:
+
+- Operator checklist + residual template: [`LIVE-SUPABASE-AUTH-PORT-HONESTY.md`](LIVE-SUPABASE-AUTH-PORT-HONESTY.md)
+- Residual evidence (bind Absent this wave): [`evidence/live-supabase-auth-bind-residual.md`](evidence/live-supabase-auth-bind-residual.md)
+- REQ: [`../requirements/09-live-supabase-auth-port.md`](../requirements/09-live-supabase-auth-port.md)
+
+This manual does **not** invent live Supabase bind PASS. `npm test` green ≠ REQ-09 Done.
+
+---
+
+## 7. REQ-10 MetaMask / wallet POC pointer
 
 Terminal MetaMask / address-proof client POC = **REQ-10** when Present:
 
@@ -221,12 +233,12 @@ This manual does **not** invent live MetaMask PASS. POC reads `CAPY_POOL_ADDRESS
 
 ---
 
-## 7. Related links
+## 8. Related links
 
 | Doc | Path |
 |-----|------|
 | USER-MANUAL (CLI) | [`USER-MANUAL.md`](./USER-MANUAL.md) |
 | REQ-08 | [`../requirements/08-identity-http-edge-on-host.md`](../requirements/08-identity-http-edge-on-host.md) |
-| REQ-09 (live Supabase residual) | [`../requirements/09-live-supabase-auth-port.md`](../requirements/09-live-supabase-auth-port.md) |
+| REQ-09 · AC-S05 honesty | [`LIVE-SUPABASE-AUTH-PORT-HONESTY.md`](LIVE-SUPABASE-AUTH-PORT-HONESTY.md) · [`../requirements/09-live-supabase-auth-port.md`](../requirements/09-live-supabase-auth-port.md) |
 | Arch-08 | [`../architecture/08-identity-http-edge-on-host/00-overview.md`](../architecture/08-identity-http-edge-on-host/00-overview.md) |
 | HOST-03 live health gate | [`../tasks/epics/EPIC-SCR-CAPY-HOST/stories/STORY-SCR-CAPY-HOST-03-railway-live-health/story-acceptance-gate-STORY-SCR-CAPY-HOST-03-railway-live-health.md`](../tasks/epics/EPIC-SCR-CAPY-HOST/stories/STORY-SCR-CAPY-HOST-03-railway-live-health/story-acceptance-gate-STORY-SCR-CAPY-HOST-03-railway-live-health.md) |

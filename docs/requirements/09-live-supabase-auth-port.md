@@ -2,13 +2,14 @@
 
 Дата: 2026-11-21 · tech-arch `2026-11-24T13:17:11Z`  
 Источник: Target ROADMAP Phase 2 · REQ-04 AC-A02/A04 · AUTH-02 residual (`createLiveSupabaseAuthPortResidual`)  
-Status: Draft — tech-arch Present (`architecture/09-…`); live `@supabase/supabase-js` implement **Absent**  
+Status: Draft — SBPORT-01…03 code Present; **live bind proof Residual** (AC-S05) · not Accepted  
 Profile: `capybara` · focus `capybara/`  
-Related: [`../tasks/backlog-stories/ROADMAP.md`](../tasks/backlog-stories/ROADMAP.md) Phase 2 · backlog [`../tasks/backlog-stories/capybara-live-supabase-auth-port/`](../tasks/backlog-stories/capybara-live-supabase-auth-port/) (SBPORT-01…04 Todo) · proposal [`../analysis/proposal-sbport-stories-2026-11-24.md`](../analysis/proposal-sbport-stories-2026-11-24.md) · parent [`04-dual-auth-wallet-supabase-user.md`](04-dual-auth-wallet-supabase-user.md) · HTTP edge [`08-identity-http-edge-on-host.md`](08-identity-http-edge-on-host.md) · wallet [`10-wallet-address-proof-client.md`](10-wallet-address-proof-client.md) · host [`07-railway-family-host.md`](07-railway-family-host.md) · port [`../../packages/core/src/auth/supabaseAuthPort.js`](../../packages/core/src/auth/supabaseAuthPort.js)  
+Honesty: [`../manuals/LIVE-SUPABASE-AUTH-PORT-HONESTY.md`](../manuals/LIVE-SUPABASE-AUTH-PORT-HONESTY.md) · residual [`../manuals/evidence/live-supabase-auth-bind-residual.md`](../manuals/evidence/live-supabase-auth-bind-residual.md)  
+Related: [`../tasks/backlog-stories/ROADMAP.md`](../tasks/backlog-stories/ROADMAP.md) Phase 2 · backlog [`../tasks/backlog-stories/capybara-live-supabase-auth-port/`](../tasks/backlog-stories/capybara-live-supabase-auth-port/) · proposal [`../analysis/proposal-sbport-stories-2026-11-24.md`](../analysis/proposal-sbport-stories-2026-11-24.md) · parent [`04-dual-auth-wallet-supabase-user.md`](04-dual-auth-wallet-supabase-user.md) · HTTP edge [`08-identity-http-edge-on-host.md`](08-identity-http-edge-on-host.md) · wallet [`10-wallet-address-proof-client.md`](10-wallet-address-proof-client.md) · host [`07-railway-family-host.md`](07-railway-family-host.md) · port [`../../packages/core/src/auth/supabaseAuthPort.js`](../../packages/core/src/auth/supabaseAuthPort.js)  
 Architecture: [`../architecture/09-live-supabase-auth-port/00-overview.md`](../architecture/09-live-supabase-auth-port/00-overview.md) · siblings [`01`](../architecture/09-live-supabase-auth-port/01-port-contract-and-bind.md) · [`02`](../architecture/09-live-supabase-auth-port/02-host-wiring-env-fail-closed.md) · [`03`](../architecture/09-live-supabase-auth-port/03-packaging-verify-deploy-residual.md) · prior dual-auth [`../architecture/04-dual-auth-wallet-supabase-user/00-overview.md`](../architecture/04-dual-auth-wallet-supabase-user/00-overview.md) · packaging/env [`../architecture/04-dual-auth-wallet-supabase-user/04-runtime-packaging-verify-env.md`](../architecture/04-dual-auth-wallet-supabase-user/04-runtime-packaging-verify-env.md)  
 Interview: Phase 0 dual-auth locks 2026-11-19 (Supabase Auth bind) · Phase 2 REQ materialize `2026-11-21T13:43:45Z` · target-tech-arch [`../analysis/zeya888.target-tech-arch-interview-09-live-supabase-auth-port-2026-11-24.md`](../analysis/zeya888.target-tech-arch-interview-09-live-supabase-auth-port-2026-11-24.md)
 
-Пометка: заменить **residual** live port на рабочий Supabase Auth bind после валидного address proof. Memory double остаётся для unit tests. Env keyMap + bind/host/packaging locks = arch-09 (interview `2026-11-24`). **name ≠ create** client wiring until implement wave.
+Пометка: SBPORT-01…03 implement Present (factory · host selection · packaging). **Live bind proof** (Railway + real project + Sign→`userId`) remains **Residual** until operator evidence Pass — AC-S05. Memory double stays for unit inject. Docs / `npm test` alone ≠ Accepted.
 
 ---
 
@@ -16,11 +17,13 @@ Interview: Phase 0 dual-auth locks 2026-11-19 (Supabase Auth bind) · Phase 2 RE
 
 | Seam | Fact |
 |------|------|
-| Memory double | Present — `createMemorySupabaseAuthDouble` ([`supabaseAuthPort.js`](../../packages/core/src/auth/supabaseAuthPort.js)) |
-| Live port | Present as **residual** — `createLiveSupabaseAuthPortResidual()` throws `EAUTH_BIND_FAILED` («Live Supabase Auth port is residual…») |
-| Bind helper | Present — `bindAddressToAuthUser` (uses port) |
-| `@supabase/supabase-js` in product host path | **Absent** as working live client |
-| Railway host | Present (REQ-07); Supabase secrets not claimed configured |
+| Memory double | Present — `createMemorySupabaseAuthDouble` (unit inject) |
+| Live factory | Present — `createLiveSupabaseAuthPort` (SBPORT-01); legacy residual labeled |
+| Host selection | Present — `resolveAuthPort` config→live / fail-closed (SBPORT-02) |
+| `@supabase/supabase-js` packaging | Present — `@capybara/core` + Dockerfile workspace install (SBPORT-03) |
+| Bind helper | Present — `bindAddressToAuthUser` |
+| Live bind proof (real project `userId`) | **Residual / Absent** — [`../manuals/evidence/live-supabase-auth-bind-residual.md`](../manuals/evidence/live-supabase-auth-bind-residual.md) |
+| Railway host | Present (REQ-07); live Supabase project bind not claimed |
 | Membership persistence in Supabase | **Absent** / Unknown — not this REQ (journals = Phase 3) |
 
 ---
@@ -68,12 +71,14 @@ Interview: Phase 0 dual-auth locks 2026-11-19 (Supabase Auth bind) · Phase 2 RE
 
 ---
 
-## 5. Named future paths (acceptance targets — not present until implement)
+## 5. Live proof / residual (AC-S05)
 
-Logical targets only (form in arch-09; name ≠ create until implement):
+Operator checklist + residual template: [`../manuals/LIVE-SUPABASE-AUTH-PORT-HONESTY.md`](../manuals/LIVE-SUPABASE-AUTH-PORT-HONESTY.md).
 
-- Live port implementation beside [`supabaseAuthPort.js`](../../packages/core/src/auth/supabaseAuthPort.js) (or replace residual body)  
-- Railway env keys: `SUPABASE_URL` · `SUPABASE_SECRET_KEY` (+ alias `SUPABASE_SERVICE_ROLE_KEY`) · `CAPY_BEARER_SECRET` — see [`../architecture/09-live-supabase-auth-port/02-host-wiring-env-fail-closed.md`](../architecture/09-live-supabase-auth-port/02-host-wiring-env-fail-closed.md)  
-- Host wiring that selects live port when config Present (no silent memory) — arch-09 `02`
+| Path | State |
+|------|-------|
+| Code (SBPORT-01…03) | Present |
+| Live bind Pass evidence | **Absent** → Residual labeled |
+| REQ-09 Accepted / Phase 2 Done | **Not claimed** from unit or docs alone |
 
-**Verified state until implement:** live port = residual throw (see §0); tech-arch Present.
+Env keyMap: `SUPABASE_URL` · `SUPABASE_SECRET_KEY` (+ `SUPABASE_SERVICE_ROLE_KEY`) · `CAPY_BEARER_SECRET` — arch-09 `02`.
