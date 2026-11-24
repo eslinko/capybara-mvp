@@ -9,7 +9,8 @@
   "scripts": {
     "start": "node host/start.js",
     "test": "mocha 'tests/unit/**/*.test.js' --config tests/.mocharc.json",
-    "cli": "node cli/capybara.js"
+    "cli": "node cli/capybara.js",
+    "wallet-proof-poc": "node cli/wallet-address-proof-poc.js"
   },
   "devDependencies": {
     "chai": "^4.5.0",
