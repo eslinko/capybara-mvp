@@ -4,15 +4,18 @@ const http = require('http');
 const { handleHostRequest } = require('./health');
 const { createAuthRuntime, tryHandleAuthRequest } = require('./authHttp');
 const { tryHandleCapabilityProbe } = require('./capabilityProbe');
+const { createSignRuntime, tryHandleSignRequest } = require('./signHttp');
 
 /**
  * Create thin Node `http` host server (no Express).
  *
- * Composes GET /health + `/auth/*` (EDGE-01/02) + `/v1/capabilities/profile.self` (EDGE-03).
+ * Composes GET /health + `/auth/*` + `/v1/capabilities/profile.self` + `/sign/*` (WPROOF-01).
  *
  * @param {{
  *   env?: NodeJS.ProcessEnv | Record<string, string | undefined>,
  *   authRuntime?: ReturnType<typeof createAuthRuntime>,
+ *   signRuntime?: ReturnType<typeof createSignRuntime>,
+ *   signTokenStore?: import('./signTokenStore').SignTokenStore,
  *   challengeStore?: import('../packages/core/src/auth/ChallengeStore').ChallengeStore,
  *   sessionStore?: import('../packages/core/src/auth/bearerSession').BearerSessionStore,
  *   authPort?: import('../packages/core/src/auth/supabaseAuthPort').SupabaseAuthPort,
@@ -33,10 +36,26 @@ function createHostServer(options = {}) {
       nowMs: options.nowMs,
     });
 
+  const signRuntime =
+    options.signRuntime ||
+    createSignRuntime({
+      signTokenStore: options.signTokenStore,
+      challenges: runtime.challenges,
+      nowMs: options.nowMs,
+    });
+  // Keep challenge store shared for HTML bootstrap.
+  if (!signRuntime.challenges) {
+    signRuntime.challenges = runtime.challenges;
+  }
+
   return http.createServer((req, res) => {
     Promise.resolve(tryHandleAuthRequest(req, res, runtime))
       .then((authHandled) => {
         if (authHandled) return true;
+        return tryHandleSignRequest(req, res, signRuntime);
+      })
+      .then((handled) => {
+        if (handled) return true;
         return tryHandleCapabilityProbe(req, res, runtime);
       })
       .then((handled) => {
@@ -48,7 +67,7 @@ function createHostServer(options = {}) {
         const body = JSON.stringify({
           ok: false,
           error: 'EHOST_INTERNAL',
-          message: err && err.message ? String(err.message) : 'host error',
+          message: err && err.message ? err.message : 'host error',
         });
         if (!res.headersSent) {
           res.writeHead(500, {
