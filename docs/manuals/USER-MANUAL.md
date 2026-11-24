@@ -632,6 +632,7 @@ LOG_LEVEL=debug CAPYBARA_ACTION=0 node capybara/cli/capybara.js
 
 - Identity HTTP edge (Phase 2 operator): [IDENTITY-HTTP-EDGE-MANUAL.md](./IDENTITY-HTTP-EDGE-MANUAL.md)
 - Wallet address-proof Channel A (desktop MetaMask extension): [WALLET-ADDRESS-PROOF-CHANNEL-A-DESKTOP.md](./WALLET-ADDRESS-PROOF-CHANNEL-A-DESKTOP.md)
+- Wallet address-proof Channel B (MetaMask in-app browser): [WALLET-ADDRESS-PROOF-CHANNEL-B-MOBILE.md](./WALLET-ADDRESS-PROOF-CHANNEL-B-MOBILE.md)
 - Эпик сети: [EPIC-SCR-CAPY-EVM](../tasks/epics/EPIC-SCR-CAPY-EVM/EPIC-SCR-CAPY-EVM.md)
 - Зафиксированные ответы: [INTERVIEW-CAPY-EVM-NETWORK-2026-10-14](../tasks/backlog-stories/capybara-evm/INTERVIEW-CAPY-EVM-NETWORK-2026-10-14.md)
 - Техника: [ARCHITECTURE.md](ARCHITECTURE.md)

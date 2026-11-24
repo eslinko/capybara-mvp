@@ -214,6 +214,8 @@ Terminal MetaMask / address-proof client POC = **REQ-10** when Present:
 - [`../requirements/10-wallet-address-proof-client.md`](../requirements/10-wallet-address-proof-client.md)
 - Channel A (desktop MetaMask **extension**) procedure: [`WALLET-ADDRESS-PROOF-CHANNEL-A-DESKTOP.md`](./WALLET-ADDRESS-PROOF-CHANNEL-A-DESKTOP.md)
 - Channel A evidence / residual record: [`evidence/channel-a-desktop-metamask-extension-result.md`](./evidence/channel-a-desktop-metamask-extension-result.md)
+- Channel B (MetaMask **in-app browser**) procedure: [`WALLET-ADDRESS-PROOF-CHANNEL-B-MOBILE.md`](./WALLET-ADDRESS-PROOF-CHANNEL-B-MOBILE.md)
+- Channel B evidence / residual record: [`evidence/channel-b-mobile-metamask-browser-result.md`](./evidence/channel-b-mobile-metamask-browser-result.md)
 
 This manual does **not** invent live MetaMask PASS. POC reads `CAPY_POOL_ADDRESS`, drives challenge against this edge, MetaMask Sign, submit verify (arch pointer).
 
