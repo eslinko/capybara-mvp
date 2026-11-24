@@ -12,8 +12,10 @@
  * CAPY_POOL_ADDRESS / PARENT_ADDRESS; familyId generated when omitted (U4).
  * MembershipStore in-memory residual (redeploy → re-bootstrap; EDGE-04 pointer).
  *
- * Live `@supabase/supabase-js` = REQ-09 residual; default Auth port = memory double.
- * Unit green ≠ Phase 2 Done (AC-I06).
+ * Auth port selection (SBPORT-02 / AC-S01/S03): config Present → live port;
+ * missing → fail-closed on identity; no silent memory when config Present
+ * (unit tests inject `opts.authPort`). Soft: SBPORT-03 packages `@supabase/supabase-js`.
+ * Unit green ≠ Phase 2 / REQ-09 Done (AC-I06 / AC-S05).
  */
 
 const {
@@ -22,7 +24,7 @@ const {
   issueChallenge,
   verifyAddressProof,
   loadAuthEnvConfig,
-  createMemorySupabaseAuthDouble,
+  createLiveSupabaseAuthPort,
   bindAddressToAuthUser,
   issueBearerSession,
   validateBearer,
@@ -105,11 +107,114 @@ function describeAuthEnvPresence(env = process.env, keyMap = PRODUCTION_AUTH_KEY
 }
 
 /**
+ * Optional runtime load of supabase-js (SBPORT-03 packaging). Absent → fail-closed live stub.
+ * @returns {Function | null}
+ */
+function tryLoadSupabaseCreateClient() {
+  try {
+    const mod = require('@supabase/supabase-js');
+    return typeof mod.createClient === 'function' ? mod.createClient : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * @param {string} reason
+ * @returns {import('../packages/core/src/auth/supabaseAuthPort').SupabaseAuthPort}
+ */
+function createUnavailableLiveAuthPort(reason) {
+  return {
+    kind: 'live-supabase-js',
+    residual: false,
+    createOrLinkUser() {
+      throw authError('EAUTH_BIND_FAILED', reason);
+    },
+  };
+}
+
+/**
+ * @returns {import('../packages/core/src/auth/supabaseAuthPort').SupabaseAuthPort}
+ */
+function createConfigMissingAuthPort() {
+  return {
+    kind: 'live-supabase-js',
+    residual: false,
+    createOrLinkUser() {
+      throw authError('EAUTH_ENV_MISSING', 'Auth env config unavailable');
+    },
+  };
+}
+
+/**
+ * Selection rule (arch-02): inject → use; config ok → live; missing → fail-closed stub.
+ * Forbidden: config Present + default memory without inject.
+ *
+ * @param {import('../packages/core/src/auth/loadAuthEnvConfig').AuthEnvConfig | null} config
+ * @param {{
+ *   authPort?: import('../packages/core/src/auth/supabaseAuthPort').SupabaseAuthPort,
+ *   admin?: object,
+ *   createClient?: Function
+ * }} opts
+ */
+function resolveAuthPort(config, opts = {}) {
+  if (opts.authPort) {
+    return opts.authPort;
+  }
+  if (!config) {
+    return createConfigMissingAuthPort();
+  }
+  if (opts.admin || typeof opts.createClient === 'function') {
+    return createLiveSupabaseAuthPort({
+      admin: opts.admin,
+      createClient: opts.createClient,
+      supabaseUrl: config.supabaseUrl,
+      serviceRoleKey: config.supabaseKey,
+    });
+  }
+  const createClient = tryLoadSupabaseCreateClient();
+  if (typeof createClient === 'function') {
+    return createLiveSupabaseAuthPort({
+      supabaseUrl: config.supabaseUrl,
+      serviceRoleKey: config.supabaseKey,
+      createClient,
+    });
+  }
+  return createUnavailableLiveAuthPort(
+    'Live Supabase Auth client unavailable (@supabase/supabase-js); inject createClient/admin or complete SBPORT-03 packaging',
+  );
+}
+
+/**
+ * Redact known secret values from public auth error messages (AC-S04).
+ *
+ * @param {string} message
+ * @param {import('../packages/core/src/auth/loadAuthEnvConfig').AuthEnvConfig | null | undefined} config
+ * @returns {string}
+ */
+function sanitizePublicAuthMessage(message, config) {
+  let msg = String(message || '');
+  if (!config) return msg;
+  for (const value of [
+    config.supabaseKey,
+    config.bearerSecret,
+    config.supabaseUrl,
+  ]) {
+    if (typeof value === 'string' && value.length >= 4 && msg.includes(value)) {
+      msg = msg.split(value).join('[redacted]');
+    }
+  }
+  return msg;
+}
+
+/**
  * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
  * @param {{
  *   challengeStore?: import('../packages/core/src/auth/ChallengeStore').ChallengeStore,
  *   sessionStore?: import('../packages/core/src/auth/bearerSession').BearerSessionStore,
  *   authPort?: import('../packages/core/src/auth/supabaseAuthPort').SupabaseAuthPort,
+ *   admin?: object,
+ *   createClient?: Function,
  *   membershipStore?: import('../packages/core/src/membership/MembershipStore'),
  *   keyMap?: typeof PRODUCTION_AUTH_KEY_MAP,
  *   nowMs?: number
@@ -130,7 +235,7 @@ function createAuthRuntime(env = process.env, opts = {}) {
     configError,
     challenges: opts.challengeStore || new ChallengeStore(),
     sessions: opts.sessionStore || new BearerSessionStore(),
-    authPort: opts.authPort || createMemorySupabaseAuthDouble(),
+    authPort: resolveAuthPort(config, opts),
     membershipStore: opts.membershipStore || new MembershipStore(),
     nowMs: opts.nowMs,
   };
@@ -479,16 +584,20 @@ async function tryHandleAuthRequest(req, res, runtime) {
     return true;
   } catch (err) {
     const mapped = mapAuthError(err);
+    const publicMessage = sanitizePublicAuthMessage(
+      mapped.message,
+      runtime.config,
+    );
     if (mapped.code === 'EAUTH_ENV_MISSING') {
       const presence = describeAuthEnvPresence(runtime.env);
       console.error(
-        `${req.method || 'UNKNOWN'} ${path} ${mapped.status} ${mapped.code} ${mapped.message} ${presence.line}`,
+        `${req.method || 'UNKNOWN'} ${path} ${mapped.status} ${mapped.code} ${publicMessage} ${presence.line}`,
       );
     }
     writeJson(res, mapped.status, {
       ok: false,
       error: mapped.code,
-      message: mapped.message,
+      message: publicMessage,
     });
     return true;
   }
@@ -499,7 +608,10 @@ module.exports = {
   withSupabaseKeyAlias,
   loadHostAuthEnvConfig,
   describeAuthEnvPresence,
+  resolveAuthPort,
+  sanitizePublicAuthMessage,
   createAuthRuntime,
+  requireRuntimeConfig,
   resolveBootstrapAddresses,
   resolveBootstrapProof,
   tryHandleAuthRequest,
@@ -507,4 +619,5 @@ module.exports = {
   extractBearerToken,
   readJsonBody,
   writeJson,
+  mapAuthError,
 };
