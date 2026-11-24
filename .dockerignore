@@ -13,7 +13,8 @@ tests
 contracts
 cli
 scripts
-packages
+# Host requires ../packages/core (auth, membership, roleGate). Do NOT exclude packages/.
+packages/*/node_modules
 config
 docs
 hardhat.config.js
