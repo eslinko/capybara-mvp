@@ -21,6 +21,8 @@ const {
 const {
   createMemorySupabaseAuthDouble,
   createLiveSupabaseAuthPortResidual,
+  createLiveSupabaseAuthPort,
+  buildCapybaraAuthEmail,
 } = require('./supabaseAuthPort');
 const { bindAddressToAuthUser } = require('./bindAddressToAuthUser');
 const {
@@ -50,6 +52,8 @@ module.exports = {
   loadAuthEnvConfig,
   createMemorySupabaseAuthDouble,
   createLiveSupabaseAuthPortResidual,
+  createLiveSupabaseAuthPort,
+  buildCapybaraAuthEmail,
   bindAddressToAuthUser,
   BearerSessionStore,
   issueBearerSession,
