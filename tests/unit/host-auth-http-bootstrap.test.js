@@ -9,6 +9,7 @@ const {
   createAuthRuntime,
   resolveBootstrapAddresses,
 } = require('../../host/authHttp');
+const { createMemorySupabaseAuthDouble } = require('../../packages/core/src/auth');
 const { MembershipStore } = require('../../packages/core/src/membership');
 
 const FIXTURE_AUTH = {
@@ -173,6 +174,7 @@ describe('host identity HTTP bootstrap (EDGE-02 / AC-I04)', () => {
       const runtime = createAuthRuntime(env, {
         nowMs: 1_700_000_000_000,
         membershipStore,
+        authPort: createMemorySupabaseAuthDouble(),
       });
       const server = createHostServer({ authRuntime: runtime, env });
 
@@ -211,7 +213,7 @@ describe('host identity HTTP bootstrap (EDGE-02 / AC-I04)', () => {
         CAPY_POOL_ADDRESS: poolWallet.address,
         PARENT_ADDRESS: parentWallet.address,
       };
-      const runtime = createAuthRuntime(env, { nowMs: 1_700_000_000_000 });
+      const runtime = createAuthRuntime(env, { nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
       const server = createHostServer({ authRuntime: runtime, env });
 
       server.listen(0, '127.0.0.1', async () => {
@@ -249,6 +251,7 @@ describe('host identity HTTP bootstrap (EDGE-02 / AC-I04)', () => {
       const runtime = createAuthRuntime(env, {
         nowMs: 1_700_000_000_000,
         membershipStore,
+        authPort: createMemorySupabaseAuthDouble(),
       });
       const server = createHostServer({ authRuntime: runtime, env });
 
@@ -293,7 +296,7 @@ describe('host identity HTTP bootstrap (EDGE-02 / AC-I04)', () => {
         PARENT_ADDRESS: wallet.address,
       };
       const server = createHostServer({
-        authRuntime: createAuthRuntime(env, { nowMs: 1_700_000_000_000 }),
+        authRuntime: createAuthRuntime(env, { nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() }),
         env,
       });
       server.listen(0, '127.0.0.1', async () => {
@@ -316,7 +319,8 @@ describe('host identity HTTP bootstrap (EDGE-02 / AC-I04)', () => {
   describe('honesty (AC-I06)', () => {
     it('documents unit harness ≠ Phase 2 Done', () => {
       const runtime = createAuthRuntime(FIXTURE_AUTH);
-      expect(runtime.authPort.kind).to.equal('memory-double');
+      expect(runtime.authPort.kind).to.equal('live-supabase-js');
+      expect(runtime.authPort.residual).to.equal(false);
       expect(runtime.membershipStore).to.be.instanceOf(MembershipStore);
     });
   });

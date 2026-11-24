@@ -10,6 +10,7 @@ const {
   createAuthRuntime,
   PRODUCTION_AUTH_KEY_MAP,
 } = require('../../host/authHttp');
+const { createMemorySupabaseAuthDouble } = require('../../packages/core/src/auth');
 const { healthPayload, handleHostRequest } = require('../../host/health');
 
 const FIXTURE_ENV = {
@@ -155,7 +156,7 @@ describe('host identity HTTP edge (EDGE-01)', () => {
   describe('challenge → verify → session → logout (t02/t03/AC-I03)', () => {
     it('full Bearer flow on same createHostServer process', (done) => {
       const nowMs = 1_700_000_000_000;
-      const runtime = createAuthRuntime(FIXTURE_ENV, { nowMs });
+      const runtime = createAuthRuntime(FIXTURE_ENV, { nowMs, authPort: createMemorySupabaseAuthDouble() });
       const server = createHostServer({ authRuntime: runtime });
       const wallet = ethers.Wallet.createRandom();
 
@@ -228,10 +229,9 @@ describe('host identity HTTP edge (EDGE-01)', () => {
   describe('honesty (t05/AC-I06)', () => {
     it('documents that unit harness ≠ Phase 2 Done claim', () => {
       // Structural marker: EDGE-01 unit path exists; live DualAuth/REQ-09 not claimed.
-      expect(createAuthRuntime(FIXTURE_ENV).authPort.kind).to.equal(
-        'memory-double',
-      );
-      expect(createAuthRuntime(FIXTURE_ENV).authPort.residual).to.equal(false);
+      const live = createAuthRuntime(FIXTURE_ENV);
+      expect(live.authPort.kind).to.equal('live-supabase-js');
+      expect(live.authPort.residual).to.equal(false);
     });
   });
 });

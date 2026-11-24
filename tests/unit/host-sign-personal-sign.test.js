@@ -12,6 +12,7 @@ const { createSignSessionController } = require('../../host/signClient');
 const { SignTokenStore } = require('../../host/signTokenStore');
 const { createHostServer } = require('../../host/server');
 const { createAuthRuntime } = require('../../host/authHttp');
+const { createMemorySupabaseAuthDouble } = require('../../packages/core/src/auth');
 const { issueChallenge } = require('../../packages/core/src/auth');
 const {
   GOLDEN_FIXTURE_MESSAGE,
@@ -102,7 +103,7 @@ describe('host sign page + personal_sign (WPROOF-01)', () => {
   describe('sign client UX (t02/t03/t05)', () => {
     it('signs exact message and verifies without product private keys (AC-W01/W02)', async () => {
       const wallet = ethers.Wallet.createRandom();
-      const auth = createAuthRuntime(AUTH_ENV, { nowMs: 1_700_000_000_000 });
+      const auth = createAuthRuntime(AUTH_ENV, { nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
       const issued = issueChallenge(auth.challenges, wallet.address, {
         nowMs: 1_700_000_000_000,
         ttlMs: 120_000,
@@ -251,7 +252,7 @@ describe('host sign page + personal_sign (WPROOF-01)', () => {
   describe('HTTP sign page shell (t01)', () => {
     it('GET /sign/{token} returns HTML bootstrap when token+challenge pending', async () => {
       const wallet = ethers.Wallet.createRandom();
-      const auth = createAuthRuntime(AUTH_ENV, { nowMs: 1_700_000_000_000 });
+      const auth = createAuthRuntime(AUTH_ENV, { nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
       const issued = issueChallenge(auth.challenges, wallet.address, {
         nowMs: 1_700_000_000_000,
         ttlMs: 120_000,
