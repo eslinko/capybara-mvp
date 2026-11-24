@@ -8,10 +8,10 @@
 
 | Rule | Target |
 |------|--------|
-| Dependency | Add `@supabase/supabase-js` to `@capybara/core` (lockfile in Git) |
-| Factory placement | Live factory beside residual in [`supabaseAuthPort.js`](../../../packages/core/src/auth/supabaseAuthPort.js) (replace residual body or export `createLiveSupabaseAuthPort`; residual must not be prod default) |
-| Image | Existing Dockerfile COPY `packages/core` + `npm install --workspace=@capybara/core` must pull supabase-js into runtime image |
-| Do not bake | Project URL/keys, Auth users, or “fixtures as live proof” |
+| Dependency | **Present** — `@supabase/supabase-js` on `@capybara/core` (lockfile in Git; SBPORT-03) |
+| Factory placement | Live factory beside residual in [`supabaseAuthPort.js`](../../../packages/core/src/auth/supabaseAuthPort.js) (`createLiveSupabaseAuthPort`; residual must not be prod default) |
+| Image | Dockerfile COPY `packages/core` + `npm install --omit=dev --workspace=@capybara/core` pulls supabase-js into runtime image |
+| Do not bake | Project URL/keys, Auth users, or “fixtures as live proof” — env-only (`.dockerignore` excludes `.env`) |
 
 ## Verify surfaces (interview lock A)
 
