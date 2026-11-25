@@ -164,15 +164,18 @@ curl -sS "http://127.0.0.1:${PORT}/health"
 
 ---
 
-## 4. In-memory residual after redeploy
+## 4. In-memory residual after redeploy (G8 / EDGE-08)
 
-MembershipStore is **in-memory** for Phase 2 ([`../architecture/08-identity-http-edge-on-host/03-env-verify-coexistence-residual.md`](../architecture/08-identity-http-edge-on-host/03-env-verify-coexistence-residual.md)).
+MembershipStore **and** InviteStore are **in-memory** for Phase 2 ([`../architecture/08-identity-http-edge-on-host/03-env-verify-coexistence-residual.md`](../architecture/08-identity-http-edge-on-host/03-env-verify-coexistence-residual.md) · [`MEMBERSHIP-INVITE-REDEPLOY-RESIDUAL.md`](MEMBERSHIP-INVITE-REDEPLOY-RESIDUAL.md)).
 
 After Railway redeploy / process restart:
 
-- Family bootstrap state is **cleared**.  
-- Operator must **re-run bootstrap** (pool + parent proofs).  
-- Persistent membership / journals = Phase 3 — not this package.
+- Family bootstrap + memberships are **cleared**.  
+- Open / accepted invites in InviteStore are **cleared**.  
+- Operator must **re-run bootstrap** (pool + parent proofs) and **re-createInvite** as needed.  
+- Bearer sessions / SignTokens are TTL/ephemeral — wipe on restart is **allowed** honesty (not membership durability Done).  
+- Persistent membership / invite store / journals = Phase 3 — **not** invented by EDGE-08 docs.  
+- **Residual:** do not invent live multi-step onboarding Pass across redeploys while in-memory (AC-G8-03/04).
 
 ---
 

@@ -172,7 +172,7 @@ Also record: `familyId`, host URL, UTC — under `docs/manuals/evidence/` when d
 |------|------|-------------------|
 | 0 Clean | G1 | EDGE-07 |
 | 1 Founder | G2 **A1** | AUTH-05 (dual Sign → one bootstrap) |
-| 2 Invites | G3 (+ G8) | INV-04 · EDGE-08 |
+| 2 Invites | G3 Present · **G8 Residual** (in-memory) | INV-04 · EDGE-08 Residual continued |
 | 3 Kids Sign | G3+G4+G5 Present (unit) | INV-04/05 · WPROOF-07 Done · live Residual |
 | 4 Miguel | G6 Present (unit/docs) · live Residual | INV-06 Done · live Pass not invented |
 | 5 Pool | G7 **B1** | AUTH-06 (pool at bootstrap; no late API) |
@@ -187,5 +187,6 @@ Full table: [`../analysis/gap-family-onboarding-http-invite-sign-2026-11-25.md`]
 - This scenario does **not** claim Phase 2 Done, REQ-08 Accepted, or family onboarding Done (AC-G3-05).  
 - Host `POST /auth/invite` Present (INV-04 units); live MetaMask/operator Pass not claimed.  
 - Opaque invite token Absent (REQ-05).  
-- In-memory membership/invite = redeploy risk (**G8**).  
+- In-memory membership/invite = redeploy wipe (**G8 Residual continued** · EDGE-08) — see [`MEMBERSHIP-INVITE-REDEPLOY-RESIDUAL.md`](MEMBERSHIP-INVITE-REDEPLOY-RESIDUAL.md). Do **not** invent multi-step live Pass across Railway redeploy while stores are process memory.  
+- Bearer/SignToken TTL wipe on restart is allowed honesty — ≠ membership durability Done.  
 - Do not paste private keys from `.env` into chats, evidence, or git.

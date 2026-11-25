@@ -22,9 +22,9 @@ Host production **keyMap** (DP5-A) — maps to AUTH classes via `loadAuthEnvConf
 Missing required auth classes in identity mode → fail-closed (no dual-auth, no gated capabilities).  
 `GET /health` must not read or echo these values (AC-I05).
 
-## Membership residual (DP1-A)
+## Membership + invite residual (DP1-A · G8 / EDGE-08)
 
-MembershipStore remains **in-memory** for Phase 2. Redeploy/restart clears family state → operator **re-bootstrap** (document in AC-I07 manual). Persistent membership/journals = Phase 3 — not this package.
+MembershipStore **and** InviteStore (host `createAuthRuntime`) remain **in-memory** for Phase 2. Redeploy/restart clears family memberships **and** open invites → operator **re-bootstrap** + re-invite (document in AC-I07 manual · [`../../manuals/MEMBERSHIP-INVITE-REDEPLOY-RESIDUAL.md`](../../manuals/MEMBERSHIP-INVITE-REDEPLOY-RESIDUAL.md)). Bearer/SignToken may stay TTL/ephemeral. Persistent membership/invite/journals = Phase 3 — not this package; EDGE-08 P3 = **Residual continued** (no invent DDL Done).
 
 ## Verify surfaces (DP9-A)
 
