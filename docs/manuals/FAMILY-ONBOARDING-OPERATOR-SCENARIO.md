@@ -70,7 +70,7 @@ Expected after (when live Pass): no Auth row for founder synthetic email `{norma
 3. `POST /auth/bootstrap` with **pool + parent** proofs (IDENTITY §3.2) — **one** call.  
 4. Expect: `familyId`, `founderRole: parent`, `userId`, `bootstrapped: true`.
 
-**Operator check:** Bearer session + membership → `GET/POST /v1/capabilities/profile.self` should allow when membership Present (live ACL still **G9**).
+**Operator check:** Bearer session + membership → `GET/POST /v1/capabilities/profile.self` should allow when membership Present (live unauth deny **Pass** EDGE-09; founder allow still **G9 Residual**).
 
 ---
 
@@ -147,8 +147,8 @@ Channel A procedure (mint/Sign): [`WALLET-ADDRESS-PROOF-CHANNEL-A-DESKTOP.md`](W
 
 | | |
 |--|--|
-| Present | Unit probe Present |
-| Status | Live Railway evidence **Residual · G9** |
+| Present | Unit probe Present (EDGE-03) · checklist [`LIVE-ACL-PROFILE-SELF-PROOF.md`](LIVE-ACL-PROFILE-SELF-PROOF.md) · **live unauth deny Pass** [`evidence/live-acl-profile-self-unauth-deny-result.md`](evidence/live-acl-profile-self-unauth-deny-result.md) (EDGE-09) |
+| Status | **G9 partial:** unauth Pass · founder/cast **Residual** — [`evidence/live-acl-profile-self-residual.md`](evidence/live-acl-profile-self-residual.md) · do not invent founder Pass · npm ≠ REQ-08 Done |
 
 ---
 
@@ -176,7 +176,7 @@ Also record: `familyId`, host URL, UTC — under `docs/manuals/evidence/` when d
 | 3 Kids Sign | G3+G4+G5 Present (unit) | INV-04/05 · WPROOF-07 Done · live Residual |
 | 4 Miguel | G6 Present (unit/docs) · live Residual | INV-06 Done · live Pass not invented |
 | 5 Pool | G7 **B1** | AUTH-06 (pool at bootstrap; no late API) |
-| 6 ACL live | G9 | EDGE-09 |
+| 6 ACL live | G9 partial (unauth Pass · founder Residual) | EDGE-09 · REQ-08 Accepted not invented |
 
 Full table: [`../analysis/gap-family-onboarding-http-invite-sign-2026-11-25.md`](../analysis/gap-family-onboarding-http-invite-sign-2026-11-25.md) §3.
 

@@ -197,8 +197,9 @@ Documented public alias in REQ-07/08: `https://capybara-mvp.up.railway.app/healt
 As of this manual:
 
 - EDGE-01…03 code is Present in-repo and green under **unit**.  
-- **Remote** `/auth/*`, `/auth/bootstrap`, and `/v1/capabilities/profile.self` are **not** claimed Present here unless a later live-run records evidence.  
-- Treat remote identity edge as **residual** until curl/evidence is attached in a future run-summary/gate.
+- **Live unauth** `GET /v1/capabilities/profile.self` → **401 deny Pass** recorded EDGE-09 — [`evidence/live-acl-profile-self-unauth-deny-result.md`](evidence/live-acl-profile-self-unauth-deny-result.md).  
+- **Live founder allow / cast** = **Residual** until Bearer evidence — [`evidence/live-acl-profile-self-residual.md`](evidence/live-acl-profile-self-residual.md) · checklist [`LIVE-ACL-PROFILE-SELF-PROOF.md`](LIVE-ACL-PROFILE-SELF-PROOF.md).  
+- Remote `/auth/*` bootstrap + authed probe: do **not** invent Pass / REQ-08 Accepted / Phase 2 Done (AC-I06).
 
 Suggested verify commands (run only after a deploy that includes EDGE code + auth env):
 

@@ -136,7 +136,7 @@ sequenceDiagram
 | **G6** | Miguel co-parent after kids | Core `role=parent` · host INV-04/05 · env `MIGUEL_ADDRESS` Present (INV-06) | Live MetaMask Pass Residual | [INV-06](../tasks/backlog-stories/capybara-family-invite/STORY-SCR-CAPY-INV-06-coparent-miguel-env-scenario.md) · pipeline Done unit/docs |
 | **G7** | Pool after children | Pool at bootstrap · B1 contract Present ([`POOL-AT-BOOTSTRAP-NO-LATE-API.md`](../manuals/POOL-AT-BOOTSTRAP-NO-LATE-API.md)) | Late pool API remains Absent (rejected B2) · scenario Step 5 = confirm | [AUTH-06](../tasks/backlog-stories/capybara-dual-auth/STORY-SCR-CAPY-AUTH-06-pool-at-bootstrap-no-late-api.md) **B1** · Done pkg-000085 · OPEN=0 |
 | **G8** | Survive redeploy | In-memory Membership+Invite | Durability **Absent** · Residual continued (EDGE-08 honesty · no invent DDL) | [EDGE-08](../tasks/backlog-stories/capybara-identity-http-edge/STORY-SCR-CAPY-EDGE-08-membership-invite-survive-redeploy.md) · [`MEMBERSHIP-INVITE-REDEPLOY-RESIDUAL.md`](../manuals/MEMBERSHIP-INVITE-REDEPLOY-RESIDUAL.md) |
-| **G9** | Live ACL proof | Unit probe | Live evidence Absent | [EDGE-09](../tasks/backlog-stories/capybara-identity-http-edge/STORY-SCR-CAPY-EDGE-09-live-acl-profile-self-proof.md) |
+| **G9** | Live ACL proof | Unit probe · live unauth deny Pass (EDGE-09) | Founder/cast live allow **Residual** · REQ-08 Accepted not invented | [EDGE-09](../tasks/backlog-stories/capybara-identity-http-edge/STORY-SCR-CAPY-EDGE-09-live-acl-profile-self-proof.md) · [`LIVE-ACL-PROFILE-SELF-PROOF.md`](../manuals/LIVE-ACL-PROFILE-SELF-PROOF.md) |
 
 ---
 
