@@ -52,21 +52,22 @@ Expected after (when live Pass): no Auth row for founder synthetic email `{norma
 
 ---
 
-### Step 1 — Founder Sign (+ family parent membership)
+### Step 1 — Founder: dual Sign → one bootstrap (A1)
 
-**Goal:** You are Auth user **and** founder membership `role=parent` in a family.
+**Goal:** Auth user **and** founder membership `role=parent` after **one** bootstrap (not after Sign alone).
 
 | | |
 |--|--|
-| Target UX | Sign founder address first (pool later) |
-| Present path | (A) Mint Sign for `PARENT_ADDRESS` → MetaMask → `POST /auth/verify` = **Auth user only** (not founder). (B) Founder membership only via `POST /auth/bootstrap` which also needs **pool** AddressProof — **G2** |
-| Status | Auth-only Sign = Present · full founder-as-operator-order = **Blocked G2** (+ bootstrap after proofs) |
+| Target UX | Operator «founder first» = obtain parent + pool proofs, then bootstrap |
+| Present path | Sign/`verify` parent → Sign/`verify` pool (order flexible) → **single** `POST /auth/bootstrap` with both AddressProofs |
+| Status | **Contract Present (AUTH-05 / A1)** — see [`FOUNDER-FIRST-DUAL-SIGN-BOOTSTRAP.md`](FOUNDER-FIRST-DUAL-SIGN-BOOTSTRAP.md) · IDENTITY §3.2 |
+| Lock | Sign alone ≠ founder · **rejected A2** founder-only / split bootstrap |
 
-**When Present (bootstrap contract):**
+**Operator path (A1):**
 
-1. Obtain AddressProof for parent (Sign/`verify` or equivalent challenge).  
-2. Obtain AddressProof for pool (`CAPY_POOL_ADDRESS`).  
-3. `POST /auth/bootstrap` with pool + parent proofs (see IDENTITY §3).  
+1. Obtain AddressProof for parent (Sign/`verify`).  
+2. Obtain AddressProof for pool (`CAPY_POOL_ADDRESS` — may equal parent hex).  
+3. `POST /auth/bootstrap` with **pool + parent** proofs (IDENTITY §3.2) — **one** call.  
 4. Expect: `familyId`, `founderRole: parent`, `userId`, `bootstrapped: true`.
 
 **Operator check:** Bearer session + membership → `GET/POST /v1/capabilities/profile.self` should allow when membership Present (live ACL still **G9**).

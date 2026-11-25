@@ -129,7 +129,7 @@ sequenceDiagram
 | ID | Target | Present | Gap | Story (REQ draft) |
 |----|--------|---------|-----|-------------------|
 | **G1** | Delete Auth user before retest | Admin list/create exercised · checklist Present ([`AUTH-USER-RETEST-CLEAN.md`](../manuals/AUTH-USER-RETEST-CLEAN.md)) | Live Admin delete/absence **Residual** this wave (not invented Pass) | [EDGE-07](../tasks/backlog-stories/capybara-identity-http-edge/STORY-SCR-CAPY-EDGE-07-auth-user-retest-clean.md) · tip pkg-000083 |
-| **G2** | Founder-first UX | Bootstrap = pool+parent one call | Order UX ≠ Sign-alone founder | [AUTH-05](../tasks/backlog-stories/capybara-dual-auth/STORY-SCR-CAPY-AUTH-05-founder-first-dual-sign-bootstrap.md) **A1** |
+| **G2** | Founder-first UX | Bootstrap = pool+parent one call · A1 contract Present ([`FOUNDER-FIRST-DUAL-SIGN-BOOTSTRAP.md`](../manuals/FOUNDER-FIRST-DUAL-SIGN-BOOTSTRAP.md)) | Live MetaMask/remote bootstrap Pass not claimed (docs ≠ invent) | [AUTH-05](../tasks/backlog-stories/capybara-dual-auth/STORY-SCR-CAPY-AUTH-05-founder-first-dual-sign-bootstrap.md) **A1** · tip pkg-000084 |
 | **G3** | HTTP createInvite | Core only | Host invite Absent | [INV-04](../tasks/backlog-stories/capybara-family-invite/STORY-SCR-CAPY-INV-04-host-http-create-invite.md) |
 | **G4** | verify accepts invite | Auth-only verify | No bindInvitee on host | [INV-05](../tasks/backlog-stories/capybara-family-invite/STORY-SCR-CAPY-INV-05-host-verify-bind-invite.md) |
 | **G5** | Manual address on Sign | Mint-fixed address | No typed address UX | [WPROOF-07](../tasks/backlog-stories/capybara-wallet-address-proof/STORY-SCR-CAPY-WPROOF-07-sign-manual-address-entry.md) |

@@ -59,7 +59,7 @@ npm start
 
 Cross-app Node start pattern (reference study; residual closed by EDGE-05/06): [`../analysis/analysis-arweave-uploader-node-env-startup-2026-11-22.md`](../analysis/analysis-arweave-uploader-node-env-startup-2026-11-22.md).
 
-**Auth port (post SBPORT-01…03):** production host selects live port when auth env Present (`resolveAuthPort` in [`../../host/authHttp.js`](../../host/authHttp.js)); missing env fail-closed; units inject memory. **Live Supabase Auth bind proof** (real project `userId` after Sign→verify) = REQ-09 AC-S05 — see [`LIVE-SUPABASE-AUTH-PORT-HONESTY.md`](LIVE-SUPABASE-AUTH-PORT-HONESTY.md). Current bind evidence: **Residual** [`evidence/live-supabase-auth-bind-residual.md`](evidence/live-supabase-auth-bind-residual.md). Docs / unit green alone ≠ Phase 2 / REQ-09 Done (AC-I06 / AC-S05).
+**Auth port (post SBPORT-01…05):** production host selects live port when auth env Present (`resolveAuthPort` in [`../../host/authHttp.js`](../../host/authHttp.js)); missing env fail-closed; units inject memory. **Live Supabase Auth bind proof** (real project `userId` after Sign→verify) = REQ-09 AC-S05 — see [`LIVE-SUPABASE-AUTH-PORT-HONESTY.md`](LIVE-SUPABASE-AUTH-PORT-HONESTY.md). Current bind evidence: **PASS** [`evidence/live-supabase-auth-bind-result.md`](evidence/live-supabase-auth-bind-result.md) · REQ-09 **Accepted** `2026-11-25`. Unit green alone ≠ invent Pass; Phase 2 full Done still needs REQ-08 ACL (AC-I06).
 
 ---
 
@@ -117,7 +117,10 @@ curl -sS -X POST "http://127.0.0.1:18080/auth/logout" \
 
 Product: [`../../host/authHttp.js`](../../host/authHttp.js).
 
-### 3.2 Bootstrap: pool + parent proofs
+### 3.2 Bootstrap: pool + parent proofs (A1 — dual Sign → one bootstrap)
+
+**Operator contract (AUTH-05):** [`FOUNDER-FIRST-DUAL-SIGN-BOOTSTRAP.md`](FOUNDER-FIRST-DUAL-SIGN-BOOTSTRAP.md).  
+**Lock:** Sign/`verify` alone = Auth user **only** (≠ founder). Founder membership requires **one** `POST /auth/bootstrap` with **both** proofs. Do **not** invent founder-only / split-bootstrap API (**rejected A2**). AC-A05/A06 field separation unchanged.
 
 1. Challenge+verify for **pool** address (default env `CAPY_POOL_ADDRESS`).  
 2. Challenge+verify for **parent** address (default env `PARENT_ADDRESS`) — may equal pool hex.  
@@ -212,10 +215,10 @@ If challenge/probe returns unexpected 404/502/empty — document residual; do **
 Live create/link after address proof = **REQ-09** AC-S05:
 
 - Operator checklist + residual template: [`LIVE-SUPABASE-AUTH-PORT-HONESTY.md`](LIVE-SUPABASE-AUTH-PORT-HONESTY.md)
-- Residual evidence (bind Absent this wave): [`evidence/live-supabase-auth-bind-residual.md`](evidence/live-supabase-auth-bind-residual.md)
+- Pass evidence: [`evidence/live-supabase-auth-bind-result.md`](evidence/live-supabase-auth-bind-result.md) · historical residual: [`evidence/live-supabase-auth-bind-residual.md`](evidence/live-supabase-auth-bind-residual.md)
 - REQ: [`../requirements/09-live-supabase-auth-port.md`](../requirements/09-live-supabase-auth-port.md)
 
-This manual does **not** invent live Supabase bind PASS. `npm test` green ≠ REQ-09 Done.
+Live bind Pass recorded `2026-11-25` — see evidence. `npm test` green alone ≠ invent Pass.
 
 ---
 
