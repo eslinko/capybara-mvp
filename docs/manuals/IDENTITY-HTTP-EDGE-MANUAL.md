@@ -34,7 +34,8 @@ Bootstrap address settings (**separate fields** — never merge):
 | `CAPY_POOL_ADDRESS` | Pool public address for bootstrap proofs |
 | `PARENT_ADDRESS` | Founder parent public address |
 
-Equal hex values are allowed; fields stay distinct (AC-I04 / REQ-04 AC-A05/A06). See [`.env.example`](../../.env.example).
+Equal hex values are allowed; fields stay distinct (AC-I04 / REQ-04 AC-A05/A06). See [`.env.example`](../../.env.example).  
+**B1 (AUTH-06):** pool identity is set **only at bootstrap** — [`POOL-AT-BOOTSTRAP-NO-LATE-API.md`](POOL-AT-BOOTSTRAP-NO-LATE-API.md). Do **not** invent a late pool founder API (**rejected B2**).
 
 Missing auth classes → identity ops fail-closed (typically HTTP 503). `GET /health` stays open and must not echo secrets (AC-I05).
 

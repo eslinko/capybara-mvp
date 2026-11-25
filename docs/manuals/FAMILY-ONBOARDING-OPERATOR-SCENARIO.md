@@ -118,15 +118,22 @@ Channel A procedure (mint/Sign): [`WALLET-ADDRESS-PROOF-CHANNEL-A-DESKTOP.md`](W
 
 ---
 
-### Step 5 — Pool account (founder action, late)
+### Step 5 — Pool confirm (B1 — already set at bootstrap)
 
-**Goal:** As founder, establish pool wallet in the family story (Sign pool).
+**Goal:** Confirm family pool identity (set at Step 1 bootstrap) — **not** invent a late create-pool API or `role=pool` membership.
 
 | | |
 |--|--|
-| Target | Pool after children, available to founder |
-| Present | Pool identity set **inside** bootstrap (`setPoolIdentity`); not an invite/membership role (**G7**). Same hex as parent possible in ops `.env` |
-| Status | **Blocked G7** relative to operator late-pool order; Present = pool proof at bootstrap (see Step 1 / G2) |
+| Target | Operator narrative «pool after children» = confirm / optional Sign same hex |
+| Present | Pool identity set **inside** bootstrap (`setPoolIdentity`); not an invite/membership role |
+| Status | **Contract Present (AUTH-06 / B1)** — see [`POOL-AT-BOOTSTRAP-NO-LATE-API.md`](POOL-AT-BOOTSTRAP-NO-LATE-API.md) |
+| Lock | **Rejected B2** late pool founder API · fields `CAPY_POOL_ADDRESS` / `PARENT_ADDRESS` stay distinct (values may equal) |
+
+**Operator path (B1):**
+
+1. After Step 1 bootstrap — pool identity already Present on the family.  
+2. Optional: if pool hex ≠ parent and ops need Auth user for pool address — Sign/`verify` that hex (Auth only).  
+3. Do **not** expect a separate founder «create pool» HTTP route.
 
 ---
 

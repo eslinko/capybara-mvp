@@ -52,7 +52,7 @@ Do not treat Auth-only Sign as Step 1 complete for family onboarding.
 | Invent | Allowed? |
 |--------|----------|
 | Founder-only bootstrap (no pool proof) | **No** (rejected A2) |
-| Late pool API after founder-only bootstrap | **No** (B1 / AUTH-06 surface) |
+| Late pool API after founder-only bootstrap | **No** (B1 — see [`POOL-AT-BOOTSTRAP-NO-LATE-API.md`](POOL-AT-BOOTSTRAP-NO-LATE-API.md)) |
 | Change AC-A05/A06 to drop dual proofs | **No** |
 | Docs invent live MetaMask / remote bootstrap Pass | **No** (AC-I06) |
 
@@ -65,4 +65,5 @@ Do not treat Auth-only Sign as Step 1 complete for family onboarding.
 | [`IDENTITY-HTTP-EDGE-MANUAL.md`](IDENTITY-HTTP-EDGE-MANUAL.md) §3.2 | Bootstrap curl + env |
 | [`FAMILY-ONBOARDING-OPERATOR-SCENARIO.md`](FAMILY-ONBOARDING-OPERATOR-SCENARIO.md) | Step 1 aligned A1 |
 | [`AUTH-USER-RETEST-CLEAN.md`](AUTH-USER-RETEST-CLEAN.md) | Soft clean before founder retest |
+| [`POOL-AT-BOOTSTRAP-NO-LATE-API.md`](POOL-AT-BOOTSTRAP-NO-LATE-API.md) | B1 pool at bootstrap · rejected B2 |
 | Gap G2 | [`../analysis/gap-family-onboarding-http-invite-sign-2026-11-25.md`](../analysis/gap-family-onboarding-http-invite-sign-2026-11-25.md) |
