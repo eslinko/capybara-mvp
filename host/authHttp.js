@@ -11,6 +11,7 @@
  * Bootstrap (EDGE-02 / AC-I04): pool + parent proofs; defaults from distinct
  * CAPY_POOL_ADDRESS / PARENT_ADDRESS; familyId generated when omitted (U4).
  * MembershipStore in-memory residual (redeploy → re-bootstrap; EDGE-04 pointer).
+ * InviteStore mounted for INV-04 host createInvite (in-memory; EDGE-08 residual).
  *
  * Auth port selection (SBPORT-02 / AC-S01/S03): config Present → live port;
  * missing → fail-closed on identity; no silent memory when config Present
@@ -33,6 +34,7 @@ const {
   authError,
 } = require('../packages/core/src/auth');
 const { MembershipStore } = require('../packages/core/src/membership');
+const { InviteStore } = require('../packages/core/src/invite');
 
 /** @type {{ supabaseUrl: string, supabaseKey: string, bearerSecret: string }} */
 const PRODUCTION_AUTH_KEY_MAP = {
@@ -216,6 +218,7 @@ function sanitizePublicAuthMessage(message, config) {
  *   admin?: object,
  *   createClient?: Function,
  *   membershipStore?: import('../packages/core/src/membership/MembershipStore'),
+ *   inviteStore?: import('../packages/core/src/invite/InviteStore'),
  *   keyMap?: typeof PRODUCTION_AUTH_KEY_MAP,
  *   nowMs?: number
  * }} [opts]
@@ -237,6 +240,7 @@ function createAuthRuntime(env = process.env, opts = {}) {
     sessions: opts.sessionStore || new BearerSessionStore(),
     authPort: resolveAuthPort(config, opts),
     membershipStore: opts.membershipStore || new MembershipStore(),
+    inviteStore: opts.inviteStore || new InviteStore(),
     nowMs: opts.nowMs,
   };
 }

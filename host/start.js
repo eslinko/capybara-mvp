@@ -4,11 +4,11 @@
  * Production host entry — `npm run start` → this file (AC-H03).
  * Not CLI / hardhat / test runners.
  *
- * Phase 2: same process mounts `/auth/*` (EDGE-01/02) + DualAuthGate→RoleGate
- * capability probe `/v1/capabilities/profile.self` (EDGE-03).
- * Live Supabase port = REQ-09 residual. MembershipStore in-memory residual (EDGE-04).
+ * Phase 2: same process mounts `/auth/*` (EDGE-01/02) + `POST /auth/invite` (INV-04) +
+ * DualAuthGate→RoleGate capability probe `/v1/capabilities/profile.self` (EDGE-03).
+ * Live Supabase port = REQ-09 residual. MembershipStore/InviteStore in-memory residual (EDGE-04/08).
  * Host dotenv load via CAPYBARA_DOTENV_PATH before main() (EDGE-05).
- * Unit green alone ≠ Phase 2 Done (AC-I06) — Phase 2 Done not claimed here.
+ * Unit green alone ≠ Phase 2 Done; family onboarding Done not claimed (AC-I06 / AC-G3-05).
  */
 
 const { createHostServer, resolveListenPort, listenHost } = require('./server');

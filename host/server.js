@@ -3,13 +3,15 @@
 const http = require('http');
 const { handleHostRequest } = require('./health');
 const { createAuthRuntime, tryHandleAuthRequest } = require('./authHttp');
+const { tryHandleInviteRequest } = require('./inviteHttp');
 const { tryHandleCapabilityProbe } = require('./capabilityProbe');
 const { createSignRuntime, tryHandleSignRequest } = require('./signHttp');
 
 /**
  * Create thin Node `http` host server (no Express).
  *
- * Composes GET /health + `/auth/*` + `/v1/capabilities/profile.self` + `/sign/*` (WPROOF-01).
+ * Composes GET /health + `/auth/*` + `POST /auth/invite` (INV-04) +
+ * `/v1/capabilities/profile.self` + `/sign/*` (WPROOF-01).
  *
  * @param {{
  *   env?: NodeJS.ProcessEnv | Record<string, string | undefined>,
@@ -20,6 +22,7 @@ const { createSignRuntime, tryHandleSignRequest } = require('./signHttp');
  *   sessionStore?: import('../packages/core/src/auth/bearerSession').BearerSessionStore,
  *   authPort?: import('../packages/core/src/auth/supabaseAuthPort').SupabaseAuthPort,
  *   membershipStore?: import('../packages/core/src/membership/MembershipStore'),
+ *   inviteStore?: import('../packages/core/src/invite/InviteStore'),
  *   nowMs?: number
  * }} [options]
  * @returns {import('http').Server}
@@ -33,6 +36,7 @@ function createHostServer(options = {}) {
       sessionStore: options.sessionStore,
       authPort: options.authPort,
       membershipStore: options.membershipStore,
+      inviteStore: options.inviteStore,
       nowMs: options.nowMs,
     });
 
@@ -57,6 +61,10 @@ function createHostServer(options = {}) {
     Promise.resolve(tryHandleAuthRequest(req, res, runtime))
       .then((authHandled) => {
         if (authHandled) return true;
+        return tryHandleInviteRequest(req, res, runtime);
+      })
+      .then((handled) => {
+        if (handled) return true;
         return tryHandleSignRequest(req, res, signRuntime);
       })
       .then((handled) => {
