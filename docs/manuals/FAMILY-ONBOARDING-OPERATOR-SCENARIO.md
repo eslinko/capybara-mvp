@@ -29,7 +29,7 @@ Order (operator lock): **clean → founder → invite kids → kids Sign → Mig
 |------|--------|
 | Railway host healthy | `GET /health` → `{"ok":true}` |
 | Auth env | `SUPABASE_URL`, `SUPABASE_SECRET_KEY` (or service-role alias), `CAPY_BEARER_SECRET` |
-| Sign mint (until G5) | `CAPY_SIGN_MINT_SECRET`, `CAPY_PUBLIC_BASE_URL` |
+| Sign mint | `CAPY_SIGN_MINT_SECRET`, `CAPY_PUBLIC_BASE_URL` (G5: typed address on page) |
 | MetaMask | Desktop extension (Channel A) or in-app (Channel B) — same encoding |
 | Addresses known | Tristan / Bastian / parent / pool / Miguel ready **before** invite (address-first, REQ-05) |
 
@@ -95,14 +95,16 @@ Expected after (when live Pass): no Auth row for founder synthetic email `{norma
 | | |
 |--|--|
 | Target | Sign page allows manual address; verify binds open invite |
-| Present | Address locked at `POST /sign/mint` body; HTML has no address field (**G5**). Verify does **not** call `bindInviteeAndAccept` (**G4**) |
-| Status | **Blocked G5 + G4** (and G3 for open invite) |
+| Present | **G5 closed (WPROOF-07):** Sign HTML has editable `#capy-address`; `POST /sign/{token}/bind-address` rebinds challenge to typed address; MM account ≠ entered → fail-closed. Verify still does **not** call `bindInviteeAndAccept` (**G4**) |
+| Status | **Blocked G4** (invite accept on verify). G5 Present · G3 Present |
 
-**Workaround today (not target UX):** operator mints URL with secret + child address → child Signs that URL → still only Auth user unless G4 closed.
+**Operator path (typed address):** mint unique-token URL (address in mint body may be placeholder/pool) → open `/sign/{token}` → Tristan/Bastian/Miguel **type/paste** their address → Connect & Sign with matching MetaMask account → proof for entered address only. Docs/unit alone ≠ invent live MetaMask Pass (REQ-10).
 
-Channel A procedure (mint/Sign): [`WALLET-ADDRESS-PROOF-CHANNEL-A-DESKTOP.md`](WALLET-ADDRESS-PROOF-CHANNEL-A-DESKTOP.md).
+**Residual until G4:** Sign/Auth user may succeed without membership/`child` role until INV-05.
 
-**Expected after G3–G5 closed:** Supabase Auth user for child email; membership `role=child`; Invite accepted; `profile.self` subject to child catalog.
+Channel A procedure (mint/Sign): [`WALLET-ADDRESS-PROOF-CHANNEL-A-DESKTOP.md`](WALLET-ADDRESS-PROOF-CHANNEL-A-DESKTOP.md) · operator note: [`WALLET-ADDRESS-PROOF-OPERATOR.md`](WALLET-ADDRESS-PROOF-OPERATOR.md) §3a.
+
+**Expected after G3–G5 closed:** Supabase Auth user for child email; membership `role=child`; Invite accepted; `profile.self` subject to child catalog — **membership/accept still needs G4**.
 
 ---
 
@@ -169,7 +171,7 @@ Also record: `familyId`, host URL, UTC — under `docs/manuals/evidence/` when d
 | 0 Clean | G1 | EDGE-07 |
 | 1 Founder | G2 **A1** | AUTH-05 (dual Sign → one bootstrap) |
 | 2 Invites | G3 (+ G8) | INV-04 · EDGE-08 |
-| 3 Kids Sign | G5, G4 | WPROOF-07 · INV-05 |
+| 3 Kids Sign | G4 (G5 Present WPROOF-07) | INV-05 · WPROOF-07 Done |
 | 4 Miguel | G6 | INV-06 |
 | 5 Pool | G7 **B1** | AUTH-06 (pool at bootstrap; no late API) |
 | 6 ACL live | G9 | EDGE-09 |

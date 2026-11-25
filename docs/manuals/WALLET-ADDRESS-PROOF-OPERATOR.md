@@ -3,10 +3,10 @@
 **REQ:** [`../requirements/10-wallet-address-proof-client.md`](../requirements/10-wallet-address-proof-client.md) §2 Operator manual · AC-W07 · AC-W08 · AC-W05 · AC-W04  
 **REQ-08 pointer:** [`../requirements/08-identity-http-edge-on-host.md`](../requirements/08-identity-http-edge-on-host.md) AC-I07 (operator bootstrap/verify surface)  
 **Architecture:** [`../architecture/10-wallet-address-proof-client/00-overview.md`](../architecture/10-wallet-address-proof-client/00-overview.md) · [`02-channels-and-sign-token.md`](../architecture/10-wallet-address-proof-client/02-channels-and-sign-token.md) · [`03-story-coverage-gate.md`](../architecture/10-wallet-address-proof-client/03-story-coverage-gate.md)  
-**Stories:** WPROOF-01..05 (Present) · **WPROOF-06** (this umbrella)  
+**Stories:** WPROOF-01..06 (Present) · **WPROOF-07** manual address (G5)  
 **Encoding:** one host page JS (`/sign/client.js`) for **both** channels — **no** Channel A/B encoding fork.
 
-> **Honesty:** Docs + unit-green ≠ live MetaMask PASS. Channel A/B live cells remain **Residual** until a human run is recorded. Do not invent Pass.
+> **Honesty:** Live Channel A + B on Railway recorded **PASS** `2026-11-24` (evidence under `manuals/evidence/`). Reject/retry optional rows may stay Residual. Docs alone ≠ invent Pass for other hosts. Phase 2 Done still needs REQ-08/09.
 
 ---
 
@@ -69,6 +69,20 @@ Expected shape: `{ ok, signToken, url, challengeId, expiresAt }` · `Cache-Contr
 
 Full procedure: [`WALLET-ADDRESS-PROOF-CHANNEL-A-DESKTOP.md`](./WALLET-ADDRESS-PROOF-CHANNEL-A-DESKTOP.md).
 
+### 3a. Manual address (WPROOF-07 / G5) — Tristan / Bastian / Miguel
+
+Family invitees type/paste their own address on the Sign page (not only consume mint-fixed bootstrap).
+
+1. Operator mints URL (`POST /sign/mint` with secret) — mint body address may be placeholder/pool; invitee will override on page.  
+2. Invitee opens `url` → editable **Wallet address** field (`#capy-address`, prefilled from bootstrap).  
+3. **Type/paste** Tristan / Bastian / Miguel / founder address → **Connect & Sign**.  
+4. Page `POST /sign/{signToken}/bind-address` `{ address }` → challenge rebound to entered address (idempotent if same).  
+5. MetaMask account **must** match entered address — mismatch → fail-closed (no `personal_sign` / no fake Pass).  
+6. Same encoding / dual-channel locks as §3–§4 (no crypto fork).  
+7. Docs/unit alone ≠ invent live MetaMask Pass (REQ-10 honesty).
+
+Family scenario Step 3: [`FAMILY-ONBOARDING-OPERATOR-SCENARIO.md`](./FAMILY-ONBOARDING-OPERATOR-SCENARIO.md).
+
 ---
 
 ## 4. Channel B — MetaMask in-app browser (commands + MetaMask)
@@ -123,6 +137,6 @@ npm run wallet-proof-poc
 | Login ≠ money | Proof signature is login/bind only — **not** pool/child money-sign |
 | Phase 4 MCP | MCP/Skill may later return signing URL + “open in MetaMask browser” — **Phase 4 consume**; not a Phase 2 Done blocker · see [`../tasks/backlog-stories/ROADMAP.md`](../tasks/backlog-stories/ROADMAP.md) Phase 4 |
 | REQ-08 AC-I07 | This umbrella + Channel A/B procedures contribute the wallet-proof operator surface; identity host bootstrap remains [`IDENTITY-HTTP-EDGE-MANUAL.md`](./IDENTITY-HTTP-EDGE-MANUAL.md) |
-| Live MetaMask A/B | **Residual** until operator records Pass — see matrix + evidence records |
+| Live MetaMask A/B | **PASS** Railway `2026-11-24` — see matrix + evidence records · reject/retry Residual where not run |
 
 **Out of scope here:** implementing MCP/Skill chrome · inventing new auth routes · ADMIN/mockups · inventing live PASS.
