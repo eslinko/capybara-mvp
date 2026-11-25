@@ -11,7 +11,9 @@
  * Bootstrap (EDGE-02 / AC-I04): pool + parent proofs; defaults from distinct
  * CAPY_POOL_ADDRESS / PARENT_ADDRESS; familyId generated when omitted (U4).
  * MembershipStore in-memory residual (redeploy → re-bootstrap; EDGE-04 pointer).
- * InviteStore mounted for INV-04 host createInvite (in-memory; EDGE-08 residual).
+ * InviteStore mounted for INV-04 host createInvite (in-memory).
+ * EDGE-08 / G8: membership+invite durability across Railway redeploy = Absent /
+ * Residual continued (no invent Phase 3 DDL Done this wave).
  * INV-05: after valid proof, open Invite for `to` → core `bindInviteeAndAccept`
  * (role from Invite; client-claimed role ignored). No open invite → Auth-only.
  *
