@@ -2,10 +2,10 @@
 
 **Profile:** `capybara` · **REQ:** [`../requirements/09-live-supabase-auth-port.md`](../requirements/09-live-supabase-auth-port.md)  
 **Architecture:** [`../architecture/09-live-supabase-auth-port/03-packaging-verify-deploy-residual.md`](../architecture/09-live-supabase-auth-port/03-packaging-verify-deploy-residual.md)  
-**Stories:** SBPORT-01…04 · **Consume:** `POST /auth/verify` on host ([`../../host/authHttp.js`](../../host/authHttp.js))  
+**Stories:** SBPORT-01…05 · **Consume:** `POST /auth/verify` on host ([`../../host/authHttp.js`](../../host/authHttp.js))  
 **Related:** [`IDENTITY-HTTP-EDGE-MANUAL.md`](IDENTITY-HTTP-EDGE-MANUAL.md) · [`WALLET-ADDRESS-PROOF-OPERATOR.md`](WALLET-ADDRESS-PROOF-OPERATOR.md)
 
-This is the **AC-S05 operator surface**: how to prove (or honestly residual) live Supabase Auth bind after address proof. Docs alone ≠ REQ-09 Accepted / Phase 2 Done.
+This is the **AC-S05 operator surface**: how to prove (or honestly residual) live Supabase Auth bind after address proof. Docs alone ≠ invent Pass; live Pass recorded `2026-11-25` — full Phase 2 Done still ≠ REQ-08 ACL.
 
 ---
 
@@ -19,7 +19,7 @@ This is the **AC-S05 operator surface**: how to prove (or honestly residual) liv
 | Residual | No Supabase project / no live bind evidence → label Residual · **not Accepted** |
 | Forbidden | Invent live PASS from unit green or from this manual alone |
 
-**Current operator status (SBPORT-04 close):** live Supabase Auth bind evidence = **Residual / Absent** — see [`evidence/live-supabase-auth-bind-residual.md`](evidence/live-supabase-auth-bind-residual.md). Do **not** invent Pass.
+**Current operator status (SBPORT-05 close):** live Supabase Auth bind evidence = **PASS** — [`evidence/live-supabase-auth-bind-result.md`](evidence/live-supabase-auth-bind-result.md). Historical residual: [`evidence/live-supabase-auth-bind-residual.md`](evidence/live-supabase-auth-bind-residual.md).
 
 ---
 
@@ -75,7 +75,8 @@ Copy into evidence when live bind is not exercised:
 - **Next:** configure project + re-run §2 checklist · or keep Residual labeled
 ```
 
-Canonical filled residual for this wave: [`evidence/live-supabase-auth-bind-residual.md`](evidence/live-supabase-auth-bind-residual.md).
+Canonical Pass: [`evidence/live-supabase-auth-bind-result.md`](evidence/live-supabase-auth-bind-result.md).  
+Historical residual (superseded): [`evidence/live-supabase-auth-bind-residual.md`](evidence/live-supabase-auth-bind-residual.md).
 
 ---
 
@@ -86,4 +87,5 @@ Canonical filled residual for this wave: [`evidence/live-supabase-auth-bind-resi
 | [`../requirements/09-live-supabase-auth-port.md`](../requirements/09-live-supabase-auth-port.md) | REQ-09 · AC-S05 |
 | [`IDENTITY-HTTP-EDGE-MANUAL.md`](IDENTITY-HTTP-EDGE-MANUAL.md) | Edge routes · env · verify curl |
 | [`WALLET-ADDRESS-PROOF-OPERATOR.md`](WALLET-ADDRESS-PROOF-OPERATOR.md) | REQ-10 Sign channels |
+| [`AUTH-USER-RETEST-CLEAN.md`](AUTH-USER-RETEST-CLEAN.md) | G1 / EDGE-07 clean before founder retest · residual labeled if delete not exercised |
 | Arch [`03-packaging-verify-deploy-residual.md`](../architecture/09-live-supabase-auth-port/03-packaging-verify-deploy-residual.md) | Deploy residual / verify surfaces |
