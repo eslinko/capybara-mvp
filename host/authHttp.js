@@ -12,6 +12,8 @@
  * CAPY_POOL_ADDRESS / PARENT_ADDRESS; familyId generated when omitted (U4).
  * MembershipStore in-memory residual (redeploy → re-bootstrap; EDGE-04 pointer).
  * InviteStore mounted for INV-04 host createInvite (in-memory; EDGE-08 residual).
+ * INV-05: after valid proof, open Invite for `to` → core `bindInviteeAndAccept`
+ * (role from Invite; client-claimed role ignored). No open invite → Auth-only.
  *
  * Auth port selection (SBPORT-02 / AC-S01/S03): config Present → live port;
  * missing → fail-closed on identity; no silent memory when config Present
@@ -34,7 +36,12 @@ const {
   authError,
 } = require('../packages/core/src/auth');
 const { MembershipStore } = require('../packages/core/src/membership');
-const { InviteStore } = require('../packages/core/src/invite');
+const {
+  InviteStore,
+  findOpenInviteByTo,
+  bindInviteeAndAccept,
+  assertInviteeNoFamilyCaps,
+} = require('../packages/core/src/invite');
 
 /** @type {{ supabaseUrl: string, supabaseKey: string, bearerSecret: string }} */
 const PRODUCTION_AUTH_KEY_MAP = {
@@ -396,6 +403,24 @@ function mapAuthError(err) {
   ) {
     return { status: 400, code, message };
   }
+  // INV-05 invite accept errors on verify path
+  if (code === 'EINVITE_PROOF_MISMATCH') {
+    return { status: 403, code, message };
+  }
+  if (
+    code === 'EINVITE_AMBIGUOUS' ||
+    code === 'EINVITE_ALREADY_ACCEPTED' ||
+    code === 'EINVITE_OPEN_CONFLICT' ||
+    code === 'EINVITE_EXISTS'
+  ) {
+    return { status: 409, code, message };
+  }
+  if (code === 'EINVITE_PRE_ACCEPT_NO_CAPS') {
+    return { status: 403, code, message };
+  }
+  if (typeof code === 'string' && code.startsWith('EINVITE_')) {
+    return { status: 400, code, message };
+  }
   return { status: 400, code, message };
 }
 
@@ -475,16 +500,73 @@ async function tryHandleAuthRequest(req, res, runtime) {
         typeof body.challengeId === 'string' ? body.challengeId : '';
       const signature =
         typeof body.signature === 'string' ? body.signature : '';
+      // Client-claimed role ignored (AC-G4-05) — capture then discard; role from Invite only
+      const clientClaimedRole =
+        typeof body.role === 'string' ? body.role : undefined;
+      const familyId =
+        typeof body.familyId === 'string' && body.familyId.trim()
+          ? body.familyId.trim()
+          : undefined;
+      const inviteId =
+        typeof body.inviteId === 'string' && body.inviteId.trim()
+          ? body.inviteId.trim()
+          : undefined;
       const proof = verifyAddressProof(
         runtime.challenges,
         challengeId,
         signature,
         { nowMs: runtime.nowMs },
       );
-      const link = await bindAddressToAuthUser(
-        { proof, authPort: runtime.authPort, config },
-        { nowMs: runtime.nowMs },
-      );
+
+      let link;
+      let inviteAccepted = false;
+      let inviteMeta = null;
+
+      const inviteStore = runtime.inviteStore;
+      let openInvite = null;
+      if (inviteStore && !inviteId) {
+        openInvite = findOpenInviteByTo(inviteStore, proof.address, familyId);
+      }
+
+      if (inviteStore && (inviteId || openInvite)) {
+        // AC-M06 / AC-G4-04: open Invite alone never grants family caps (pre-accept)
+        const preFamilyId =
+          (openInvite && openInvite.familyId) || familyId || undefined;
+        if (preFamilyId) {
+          assertInviteeNoFamilyCaps({
+            membershipStore: runtime.membershipStore,
+            toAddress: proof.address,
+            familyId: preFamilyId,
+          });
+        }
+        const accepted = await bindInviteeAndAccept({
+          inviteStore,
+          membershipStore: runtime.membershipStore,
+          proof,
+          authPort: runtime.authPort,
+          config,
+          familyId,
+          inviteId,
+          clientClaimedRole,
+          nowMs: runtime.nowMs,
+        });
+        link = accepted.link;
+        inviteAccepted = true;
+        inviteMeta = {
+          inviteId: accepted.invite.id,
+          inviteStatus: accepted.invite.status,
+          membershipId: accepted.membership.id,
+          membershipRole: accepted.membership.role,
+          familyId: accepted.membership.familyId,
+        };
+      } else {
+        // AC-G4-02: no open invite → Auth+session only (no silent membership)
+        link = await bindAddressToAuthUser(
+          { proof, authPort: runtime.authPort, config },
+          { nowMs: runtime.nowMs },
+        );
+      }
+
       const session = issueBearerSession(runtime.sessions, link, config, {
         nowMs: runtime.nowMs,
       });
@@ -510,6 +592,8 @@ async function tryHandleAuthRequest(req, res, runtime) {
         expiresAt: session.expiresAt,
         // EDGE-02 DP7-A: AddressProof for later POST /auth/bootstrap
         proof,
+        inviteAccepted,
+        ...(inviteMeta || {}),
       });
       return true;
     }
