@@ -81,10 +81,10 @@ Expected after (when live Pass): no Auth row for founder synthetic email `{norma
 | | |
 |--|--|
 | Target | HTTP API (Bearer founder) `createInvite` for `TRISTAN_ADDRESS` then `BASTIAN_ADDRESS` |
-| Present | Core `createInvite` only — **no** host `/invite*` · InviteStore **not** on host runtime |
-| Status | **Blocked G3** |
+| Present | Host `POST /auth/invite` wires core `createInvite` · InviteStore on `createAuthRuntime` (INV-04) |
+| Status | **Contract Present (AUTH HTTP / G3)** — unit harness green; **≠** family onboarding Done (AC-G3-05) · live Tristan/Bastian Pass not claimed |
 
-**When Present (illustrative shape — not inventing route):** authenticated parent posts invite with `to` + `role: "child"` + family context; expect open invite id. Fail-closed if family not bootstrapped / non-parent / address role conflict (REQ-05).
+**Operator path:** authenticated parent `POST /auth/invite` with `to` + `role: "child"` + `familyId`; expect open invite id. Fail-closed if family not bootstrapped / non-parent / empty `to` / address role conflict (REQ-05). No opaque invite token.
 
 ---
 
@@ -180,7 +180,8 @@ Full table: [`../analysis/gap-family-onboarding-http-invite-sign-2026-11-25.md`]
 
 ## 5. Non-claims
 
-- This scenario does **not** claim Phase 2 Done, REQ-08 Accepted, or invite HTTP Present.  
+- This scenario does **not** claim Phase 2 Done, REQ-08 Accepted, or family onboarding Done (AC-G3-05).  
+- Host `POST /auth/invite` Present (INV-04 units); live MetaMask/operator Pass not claimed.  
 - Opaque invite token Absent (REQ-05).  
 - In-memory membership/invite = redeploy risk (**G8**).  
 - Do not paste private keys from `.env` into chats, evidence, or git.
