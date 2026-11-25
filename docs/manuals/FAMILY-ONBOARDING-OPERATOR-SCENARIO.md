@@ -95,16 +95,14 @@ Expected after (when live Pass): no Auth row for founder synthetic email `{norma
 | | |
 |--|--|
 | Target | Sign page allows manual address; verify binds open invite |
-| Present | **G5 closed (WPROOF-07):** Sign HTML has editable `#capy-address`; `POST /sign/{token}/bind-address` rebinds challenge to typed address; MM account ≠ entered → fail-closed. Verify still does **not** call `bindInviteeAndAccept` (**G4**) |
-| Status | **Blocked G4** (invite accept on verify). G5 Present · G3 Present |
+| Present | **G5 closed (WPROOF-07)** + **G4 closed (INV-05):** typed address Sign → `POST /auth/verify` wires core `bindInviteeAndAccept` when open Invite for `to` → Membership with Invite.role + Invite accepted. No open invite → Auth-only. G3 Present |
+| Status | **Present G3+G4+G5** (unit). Live MetaMask / Railway Pass **not** invented — docs/unit alone ≠ family onboarding Done |
 
-**Operator path (typed address):** mint unique-token URL (address in mint body may be placeholder/pool) → open `/sign/{token}` → Tristan/Bastian/Miguel **type/paste** their address → Connect & Sign with matching MetaMask account → proof for entered address only. Docs/unit alone ≠ invent live MetaMask Pass (REQ-10).
-
-**Residual until G4:** Sign/Auth user may succeed without membership/`child` role until INV-05.
+**Operator path:** parent `POST /auth/invite` for Tristan/Bastian → mint Sign URL → invitee types/pastes address → Connect & Sign → verify accepts invite (role from Invite; client-claimed role ignored). Docs/unit alone ≠ invent live MetaMask Pass (REQ-10).
 
 Channel A procedure (mint/Sign): [`WALLET-ADDRESS-PROOF-CHANNEL-A-DESKTOP.md`](WALLET-ADDRESS-PROOF-CHANNEL-A-DESKTOP.md) · operator note: [`WALLET-ADDRESS-PROOF-OPERATOR.md`](WALLET-ADDRESS-PROOF-OPERATOR.md) §3a.
 
-**Expected after G3–G5 closed:** Supabase Auth user for child email; membership `role=child`; Invite accepted; `profile.self` subject to child catalog — **membership/accept still needs G4**.
+**Expected after G3–G5:** Supabase Auth user; membership `role=child`; Invite accepted — live evidence Residual until operator records Pass.
 
 ---
 
@@ -115,8 +113,8 @@ Channel A procedure (mint/Sign): [`WALLET-ADDRESS-PROOF-CHANNEL-A-DESKTOP.md`](W
 | | |
 |--|--|
 | Target | Same invite+Sign pattern as kids |
-| Present | Core supports `role=parent` invite; host API Absent; `MIGUEL_ADDRESS` Absent from `.env.example` |
-| Status | **Blocked G6** (depends on G3/G4/G5) |
+| Present | Core + host createInvite + verify accept Present (INV-04/05); `MIGUEL_ADDRESS` Absent from `.env.example` (**G6**) |
+| Status | **Blocked G6** (Miguel env/scenario) · G3/G4/G5 Present (unit) |
 
 ---
 
@@ -171,7 +169,7 @@ Also record: `familyId`, host URL, UTC — under `docs/manuals/evidence/` when d
 | 0 Clean | G1 | EDGE-07 |
 | 1 Founder | G2 **A1** | AUTH-05 (dual Sign → one bootstrap) |
 | 2 Invites | G3 (+ G8) | INV-04 · EDGE-08 |
-| 3 Kids Sign | G4 (G5 Present WPROOF-07) | INV-05 · WPROOF-07 Done |
+| 3 Kids Sign | G3+G4+G5 Present (unit) | INV-04/05 · WPROOF-07 Done · live Residual |
 | 4 Miguel | G6 | INV-06 |
 | 5 Pool | G7 **B1** | AUTH-06 (pool at bootstrap; no late API) |
 | 6 ACL live | G9 | EDGE-09 |
