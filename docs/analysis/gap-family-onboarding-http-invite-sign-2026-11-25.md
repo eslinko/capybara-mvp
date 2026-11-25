@@ -111,7 +111,7 @@ sequenceDiagram
 | Key | Fact |
 |-----|------|
 | `TRISTAN_ADDRESS` / `BASTIAN_ADDRESS` | Present in [`.env.example`](../../.env.example) |
-| `MIGUEL_ADDRESS` | **Absent** from `.env.example` |
+| `MIGUEL_ADDRESS` | **Present** in `.env.example` (INV-06 / G6 — address only, no private key) |
 | `CAPY_POOL_ADDRESS` / `PARENT_ADDRESS` | Distinct fields (REQ-04); operator `.env` may hold **same hex** for both (as-is ops fact — do not paste secrets) |
 
 ### 2.7 Persistence
@@ -133,7 +133,7 @@ sequenceDiagram
 | **G3** | HTTP createInvite | Host `POST /auth/invite` · InviteStore on runtime ([`inviteHttp.js`](../../host/inviteHttp.js)) | Live operator Tristan/Bastian Pass not claimed · onboarding Done ≠ unit (AC-G3-05) · EDGE-08 in-memory residual | [INV-04](../tasks/backlog-stories/capybara-family-invite/STORY-SCR-CAPY-INV-04-host-http-create-invite.md) Done pkg-000086 · OPEN=0 |
 | **G4** | verify accepts invite | Auth-only verify | No bindInvitee on host | [INV-05](../tasks/backlog-stories/capybara-family-invite/STORY-SCR-CAPY-INV-05-host-verify-bind-invite.md) |
 | **G5** | Manual address on Sign | Mint-fixed address | No typed address UX | [WPROOF-07](../tasks/backlog-stories/capybara-wallet-address-proof/STORY-SCR-CAPY-WPROOF-07-sign-manual-address-entry.md) |
-| **G6** | Miguel co-parent after kids | Core `role=parent` | Host + env Absent | [INV-06](../tasks/backlog-stories/capybara-family-invite/STORY-SCR-CAPY-INV-06-coparent-miguel-env-scenario.md) |
+| **G6** | Miguel co-parent after kids | Core `role=parent` · host INV-04/05 · env `MIGUEL_ADDRESS` Present (INV-06) | Live MetaMask Pass Residual | [INV-06](../tasks/backlog-stories/capybara-family-invite/STORY-SCR-CAPY-INV-06-coparent-miguel-env-scenario.md) · pipeline Done unit/docs |
 | **G7** | Pool after children | Pool at bootstrap · B1 contract Present ([`POOL-AT-BOOTSTRAP-NO-LATE-API.md`](../manuals/POOL-AT-BOOTSTRAP-NO-LATE-API.md)) | Late pool API remains Absent (rejected B2) · scenario Step 5 = confirm | [AUTH-06](../tasks/backlog-stories/capybara-dual-auth/STORY-SCR-CAPY-AUTH-06-pool-at-bootstrap-no-late-api.md) **B1** · Done pkg-000085 · OPEN=0 |
 | **G8** | Survive redeploy | In-memory | Durability Absent | [EDGE-08](../tasks/backlog-stories/capybara-identity-http-edge/STORY-SCR-CAPY-EDGE-08-membership-invite-survive-redeploy.md) |
 | **G9** | Live ACL proof | Unit probe | Live evidence Absent | [EDGE-09](../tasks/backlog-stories/capybara-identity-http-edge/STORY-SCR-CAPY-EDGE-09-live-acl-profile-self-proof.md) |

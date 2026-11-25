@@ -16,7 +16,7 @@
 | You (founder parent) | `parent` (founder) | `PARENT_ADDRESS` (MetaMask account you control) |
 | Tristan | `child` | `.env` `TRISTAN_ADDRESS` |
 | Bastian | `child` | `.env` `BASTIAN_ADDRESS` |
-| Miguel | `parent` (co-parent) | ops address (**`MIGUEL_ADDRESS` not in `.env.example`** — see G6) |
+| Miguel | `parent` (co-parent) | `.env` / `.env.example` `MIGUEL_ADDRESS` (ops address only — no private key) |
 | Pool | family pool identity | `CAPY_POOL_ADDRESS` (may equal parent hex today) |
 
 Order (operator lock): **clean → founder → invite kids → kids Sign → Miguel invite+Sign → pool**.
@@ -113,8 +113,12 @@ Channel A procedure (mint/Sign): [`WALLET-ADDRESS-PROOF-CHANNEL-A-DESKTOP.md`](W
 | | |
 |--|--|
 | Target | Same invite+Sign pattern as kids |
-| Present | Core + host createInvite + verify accept Present (INV-04/05); `MIGUEL_ADDRESS` Absent from `.env.example` (**G6**) |
-| Status | **Blocked G6** (Miguel env/scenario) · G3/G4/G5 Present (unit) |
+| Present | **G6 closed (INV-06):** `MIGUEL_ADDRESS` in `.env.example` (address only) · order lock after Tristan/Bastian · same host `POST /auth/invite` `role=parent` + verify accept (INV-04/05) · no second bootstrap · soft checklist [`CO-PARENT-MIGUEL-ENV-SCENARIO.md`](CO-PARENT-MIGUEL-ENV-SCENARIO.md) |
+| Status | **Present G6** (env + scenario + unit path). Live MetaMask / Railway Pass **not** invented — docs/unit alone ≠ family onboarding Done |
+
+**Operator path (after Step 3 kids):** founder `POST /auth/invite` with `to: MIGUEL_ADDRESS`, `role: "parent"`, `familyId` → mint Sign URL → Miguel types/pastes address → Connect & Sign → verify accepts → membership `parent` (equal parent caps per catalog). Do **not** call `POST /auth/bootstrap` for co-parent.
+
+**Expected after G6:** Auth user + membership `role=parent` + Invite accepted — live evidence Residual until operator records Pass.
 
 ---
 
@@ -170,7 +174,7 @@ Also record: `familyId`, host URL, UTC — under `docs/manuals/evidence/` when d
 | 1 Founder | G2 **A1** | AUTH-05 (dual Sign → one bootstrap) |
 | 2 Invites | G3 (+ G8) | INV-04 · EDGE-08 |
 | 3 Kids Sign | G3+G4+G5 Present (unit) | INV-04/05 · WPROOF-07 Done · live Residual |
-| 4 Miguel | G6 | INV-06 |
+| 4 Miguel | G6 Present (unit/docs) · live Residual | INV-06 Done · live Pass not invented |
 | 5 Pool | G7 **B1** | AUTH-06 (pool at bootstrap; no late API) |
 | 6 ACL live | G9 | EDGE-09 |
 
