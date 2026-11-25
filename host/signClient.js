@@ -16,7 +16,9 @@ const {
  *   bootstrap: { challengeId: string, message: string, address: string, expiresAt?: string },
  *   fetchImpl?: typeof fetch,
  *   signToken: string,
- *   nowMs?: () => number
+ *   nowMs?: () => number,
+ *   getEnteredAddress?: () => string,
+ *   enteredAddress?: string
  * }} opts
  */
 function createSignSessionController(opts) {
@@ -33,6 +35,7 @@ function createSignSessionController(opts) {
   let lastError = null;
   let verifyOk = false;
   let capabilitiesGranted = false;
+  let boundAddress = null;
 
   function setStatus(next, err) {
     status = next;
@@ -94,6 +97,68 @@ function createSignSessionController(opts) {
     }
   }
 
+  function resolveEnteredAddress() {
+    if (typeof opts.getEnteredAddress === 'function') {
+      return String(opts.getEnteredAddress() || '').trim();
+    }
+    if (typeof opts.enteredAddress === 'string' && opts.enteredAddress.trim()) {
+      return opts.enteredAddress.trim();
+    }
+    return bootstrap && typeof bootstrap.address === 'string'
+      ? String(bootstrap.address).trim()
+      : '';
+  }
+
+  /**
+   * Bind challenge to entered address (POST /sign/{token}/bind-address) when needed.
+   * @returns {Promise<string>} normalized/bound address from host
+   */
+  async function ensureBoundToEnteredAddress() {
+    const entered = resolveEnteredAddress();
+    if (!entered) {
+      const err = new Error('Enter or paste a wallet address before Connect & Sign');
+      err.code = 'ENO_ADDRESS';
+      throw err;
+    }
+    // Idempotent when entered already matches bootstrap (no host round-trip)
+    if (
+      bootstrap &&
+      bootstrap.address &&
+      entered.toLowerCase() === String(bootstrap.address).toLowerCase()
+    ) {
+      boundAddress = String(bootstrap.address);
+      return boundAddress;
+    }
+    if (typeof fetchImpl !== 'function' || !signToken) {
+      const err = new Error('Entered address differs from bootstrap; bind-address required');
+      err.code = 'ENO_BIND';
+      throw err;
+    }
+    setStatus('binding');
+    const res = await fetchImpl(`/sign/${encodeURIComponent(signToken)}/bind-address`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: entered }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json || json.ok !== true) {
+      const err = new Error(
+        (json && (json.error || json.message)) || `bind-address HTTP ${res.status}`,
+      );
+      err.code = (json && json.error) || 'ESIGN_BIND_FAILED';
+      err.payload = json;
+      setStatus('bind_failed', err);
+      throw err;
+    }
+    bootstrap.challengeId = json.challengeId;
+    bootstrap.message = json.message;
+    bootstrap.address = json.address;
+    bootstrap.expiresAt = json.expiresAt;
+    boundAddress = String(json.address || entered);
+    setStatus('bound');
+    return boundAddress;
+  }
+
   /**
    * Sign exact bootstrap.message; ignore late results after account-switch.
    * @returns {Promise<string|null>} signature or null if aborted/rejected
@@ -103,6 +168,19 @@ function createSignSessionController(opts) {
     if (!connectedAddress) {
       await connect();
     }
+    const expected = boundAddress || resolveEnteredAddress() || bootstrap.address;
+    if (
+      expected &&
+      connectedAddress &&
+      connectedAddress.toLowerCase() !== String(expected).toLowerCase()
+    ) {
+      const err = new Error(
+        'MetaMask account does not match entered address',
+      );
+      err.code = 'EACCOUNT_MISMATCH';
+      setStatus('mismatch', err);
+      throw err;
+    }
     const gen = signGeneration;
     const message = bootstrap.message;
     if (typeof message !== 'string') {
@@ -110,7 +188,7 @@ function createSignSessionController(opts) {
       err.code = 'ENO_MESSAGE';
       throw err;
     }
-    // Exact message — no trim / normalize (arch-01)
+    // Exact message — no trim / normalize (arch-01); encoding unchanged (AC-G5-04)
     const params = buildPersonalSignParams(message, connectedAddress);
     setStatus('signing');
     try {
@@ -125,6 +203,7 @@ function createSignSessionController(opts) {
       setStatus('signed');
       return typeof signature === 'string' ? signature : String(signature);
     } catch (err) {
+      if (err && err.code === 'EACCOUNT_MISMATCH') throw err;
       const code = err && (err.code === 4001 || err.code === 'ACTION_REJECTED');
       if (code || (err && /reject|denied|cancel/i.test(String(err.message || '')))) {
         setStatus('rejected');
@@ -186,6 +265,7 @@ function createSignSessionController(opts) {
   async function run() {
     bindAccountListener();
     try {
+      await ensureBoundToEnteredAddress();
       await connect();
       const signature = await signChallenge();
       if (!signature) {
@@ -203,7 +283,14 @@ function createSignSessionController(opts) {
         status,
         capabilitiesGranted,
         json,
+        address: (json && json.address) || boundAddress || connectedAddress,
       };
+    } catch (err) {
+      if (err && err.code === 'EACCOUNT_MISMATCH') {
+        capabilitiesGranted = false;
+        return { ok: false, status: 'mismatch', capabilitiesGranted: false, error: err };
+      }
+      throw err;
     } finally {
       unbindAccountListener();
     }
@@ -214,6 +301,7 @@ function createSignSessionController(opts) {
     signChallenge,
     verify,
     postClientEvent,
+    ensureBoundToEnteredAddress,
     run,
     onAccountsChanged,
     bindAccountListener,
@@ -224,6 +312,7 @@ function createSignSessionController(opts) {
       status,
       lastError,
       connectedAddress,
+      boundAddress,
       aborted,
       verifyOk,
       capabilitiesGranted,

@@ -65,6 +65,8 @@ function renderSignPageHtml(signToken, bootstrap) {
   <title>Capybara sign</title>
   <style>
     body{font-family:system-ui,sans-serif;margin:2rem;max-width:40rem}
+    label{display:block;margin:1rem 0 0.25rem}
+    input#capy-address{width:100%;max-width:36rem;padding:0.5rem;font-family:ui-monospace,monospace;box-sizing:border-box}
     button{margin:0.25rem 0.5rem 0.25rem 0;padding:0.5rem 1rem}
     #status{margin-top:1rem;white-space:pre-wrap}
     .err{color:#a00}
@@ -72,9 +74,13 @@ function renderSignPageHtml(signToken, bootstrap) {
 </head>
 <body>
   <h1>Capybara address proof</h1>
-  <p>Connect MetaMask and Sign the host challenge. No product/pool keys on this page.</p>
+  <p>Enter or paste the wallet address to prove, then Connect &amp; Sign. No product/pool keys on this page.</p>
+  <label for="capy-address">Wallet address</label>
+  <input type="text" id="capy-address" name="address" autocomplete="off" spellcheck="false" placeholder="0x…"/>
+  <p>
   <button type="button" id="btn-run">Connect &amp; Sign</button>
   <button type="button" id="btn-retry" hidden>Retry</button>
+  </p>
   <div id="status"></div>
   <script>
     window.__CAPY_SIGN_BOOTSTRAP__ = ${bootstrapJson};
@@ -110,6 +116,25 @@ function renderSignClientBrowserJs() {
     el.textContent = text;
     el.className = isErr ? 'err' : '';
   }
+  function readEnteredAddress() {
+    var el = document.getElementById('capy-address');
+    return el && typeof el.value === 'string' ? el.value.trim() : '';
+  }
+  async function bindEnteredAddress(signToken, address) {
+    var res = await fetch('/sign/' + encodeURIComponent(signToken) + '/bind-address', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: address })
+    });
+    var json = await res.json().catch(function () { return {}; });
+    if (!res.ok || !json.ok) {
+      var err = new Error((json && json.error) || ('bind-address HTTP ' + res.status));
+      err.code = (json && json.error) || 'ESIGN_BIND_FAILED';
+      err.payload = json;
+      throw err;
+    }
+    return json;
+  }
   async function runFlow() {
     var statusEl = document.getElementById('status');
     var bootstrap = window.__CAPY_SIGN_BOOTSTRAP__;
@@ -121,6 +146,11 @@ function renderSignClientBrowserJs() {
     }
     if (!bootstrap || typeof bootstrap.message !== 'string') {
       setStatus(statusEl, 'Missing bootstrap challenge.', true);
+      return;
+    }
+    var entered = readEnteredAddress();
+    if (!entered) {
+      setStatus(statusEl, 'Enter or paste a wallet address before Connect & Sign.', true);
       return;
     }
     var aborted = false;
@@ -137,10 +167,26 @@ function renderSignClientBrowserJs() {
     }
     if (typeof ethereum.on === 'function') ethereum.on('accountsChanged', onAccountsChanged);
     try {
+      setStatus(statusEl, 'Binding challenge to entered address…');
+      var bound = await bindEnteredAddress(signToken, entered);
+      bootstrap.challengeId = bound.challengeId;
+      bootstrap.message = bound.message;
+      bootstrap.address = bound.address;
+      bootstrap.expiresAt = bound.expiresAt;
+      window.__CAPY_SIGN_BOOTSTRAP__ = bootstrap;
+      entered = String(bound.address || entered);
       setStatus(statusEl, 'Connecting…');
       var accounts = await ethereum.request({ method: 'eth_requestAccounts' });
       connected = accounts && accounts[0] ? String(accounts[0]) : '';
       if (!connected) throw new Error('No account');
+      if (connected.toLowerCase() !== entered.toLowerCase()) {
+        setStatus(
+          statusEl,
+          'MetaMask account does not match entered address. Switch account or fix the address field.',
+          true
+        );
+        return;
+      }
       var myGen = gen;
       setStatus(statusEl, 'Sign the challenge in the wallet…');
       var params = buildParams(bootstrap.message, connected);
@@ -188,6 +234,10 @@ function renderSignClientBrowserJs() {
     } catch (err) {
       setStatus(statusEl, String(err && err.message ? err.message : err), true);
     }
+  }
+  var addrInput = document.getElementById('capy-address');
+  if (addrInput && window.__CAPY_SIGN_BOOTSTRAP__ && window.__CAPY_SIGN_BOOTSTRAP__.address) {
+    addrInput.value = String(window.__CAPY_SIGN_BOOTSTRAP__.address);
   }
   var btn = document.getElementById('btn-run');
   var retry = document.getElementById('btn-retry');
@@ -276,6 +326,8 @@ function matchSignPath(pathname) {
   if (mResult) return { kind: 'result', signToken: mResult[1].toLowerCase() };
   const mEvent = pathname.match(/^\/sign\/([a-fA-F0-9]+)\/client-event\/?$/);
   if (mEvent) return { kind: 'client_event', signToken: mEvent[1].toLowerCase() };
+  const mBind = pathname.match(/^\/sign\/([a-fA-F0-9]+)\/bind-address\/?$/);
+  if (mBind) return { kind: 'bind_address', signToken: mBind[1].toLowerCase() };
   const mPage = pathname.match(/^\/sign\/([a-fA-F0-9]+)\/?$/);
   if (mPage) return { kind: 'page', signToken: mPage[1].toLowerCase() };
   return null;
@@ -431,6 +483,100 @@ async function tryHandleSignRequest(req, res, runtime) {
       'Content-Length': Buffer.byteLength(html),
     });
     res.end(html);
+    return true;
+  }
+
+  if (match.kind === 'bind_address' && req.method === 'POST') {
+    const row = runtime.signTokens.get(match.signToken, now);
+    if (!row || row.htmlConsumed || row.resultStatus === 'ok') {
+      writeJson(res, 404, { ok: false, error: 'ESIGN_TOKEN_UNAVAILABLE' });
+      return true;
+    }
+    if (!runtime.challenges) {
+      writeJson(res, 503, { ok: false, error: 'ESIGN_NO_CHALLENGE_STORE' });
+      return true;
+    }
+    const base = parsePublicBaseUrl(
+      runtime.env && runtime.env.CAPY_PUBLIC_BASE_URL,
+    );
+    if (!base) {
+      writeJson(res, 503, { ok: false, error: 'ESIGN_PUBLIC_BASE_URL_UNSET' });
+      return true;
+    }
+    let body;
+    try {
+      body = await readJsonBody(req);
+    } catch (_) {
+      writeJson(res, 400, { ok: false, error: 'ESIGN_BAD_JSON' });
+      return true;
+    }
+    const address = body && typeof body.address === 'string' ? body.address.trim() : '';
+    if (!address) {
+      writeJson(res, 400, { ok: false, error: 'ESIGN_ADDRESS_REQUIRED' });
+      return true;
+    }
+    // Idempotent: same address as current pending challenge → return bootstrap
+    try {
+      const current = runtime.challenges.get(row.challengeId);
+      if (
+        current &&
+        now <= current.expiresAtMs &&
+        String(current.address || '').toLowerCase() === address.toLowerCase()
+      ) {
+        writeJson(res, 200, {
+          ok: true,
+          challengeId: current.id || row.challengeId,
+          message: current.message,
+          address: current.address,
+          expiresAt: current.expiresAt,
+          rebound: false,
+        });
+        return true;
+      }
+    } catch (_) {
+      // challenge missing/expired → issue fresh below
+    }
+    let issued;
+    try {
+      issued = issueChallenge(runtime.challenges, address, {
+        nowMs: now,
+        domain: base.hostname,
+        uri: `${base.baseUrl}/sign`,
+      });
+    } catch (err) {
+      writeJson(res, 400, {
+        ok: false,
+        error: (err && err.code) || 'ESIGN_ISSUE_CHALLENGE',
+        message: err && err.message ? String(err.message) : 'issue failed',
+      });
+      return true;
+    }
+    try {
+      const rebound = runtime.signTokens.rebindChallenge(
+        match.signToken,
+        { challengeId: issued.challengeId, expiresAtMs: issued.expiresAtMs },
+        now,
+      );
+      if (!rebound) {
+        writeJson(res, 404, { ok: false, error: 'ESIGN_TOKEN_UNAVAILABLE' });
+        return true;
+      }
+    } catch (err) {
+      writeJson(res, 409, {
+        ok: false,
+        error: (err && err.code) || 'ESIGN_TOKEN_REBIND',
+        message: err && err.message ? String(err.message) : 'rebind failed',
+      });
+      return true;
+    }
+    writeJson(res, 200, {
+      ok: true,
+      challengeId: issued.challengeId,
+      message: issued.message,
+      address: issued.address,
+      expiresAt: issued.expiresAt,
+      rebound: true,
+    });
     return true;
   }
 

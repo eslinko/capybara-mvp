@@ -68,6 +68,48 @@ class SignTokenStore {
   }
 
   /**
+   * Rebind an active pending token to a new challengeId (manual address UX / G5).
+   * Does not attach two active tokens to one challengeId.
+   * @param {string} signToken
+   * @param {{ challengeId: string, expiresAtMs: number }} opts
+   * @param {number} [nowMs]
+   * @returns {boolean}
+   */
+  rebindChallenge(signToken, opts, nowMs = Date.now()) {
+    const row = this.get(signToken, nowMs);
+    if (!row || row.resultStatus === 'ok' || row.htmlConsumed) return false;
+    const challengeId = String(opts.challengeId || '').trim();
+    const expiresAtMs = Number(opts.expiresAtMs);
+    if (!challengeId) {
+      throw new Error('SignTokenStore.rebindChallenge requires challengeId');
+    }
+    if (!Number.isFinite(expiresAtMs) || expiresAtMs <= 0) {
+      throw new Error('SignTokenStore.rebindChallenge requires expiresAtMs');
+    }
+    const existingTok = this._byChallengeId.get(challengeId);
+    if (existingTok && existingTok !== row.signToken) {
+      const existing = this._byToken.get(existingTok);
+      if (existing && existing.resultStatus !== 'ok') {
+        const err = new Error(
+          'SignTokenStore: challengeId already has an active signToken',
+        );
+        err.code = 'ESIGN_CHALLENGE_TOKEN_BOUND';
+        throw err;
+      }
+    }
+    const stored = this._byToken.get(row.signToken);
+    const oldCid = stored.challengeId;
+    if (oldCid && this._byChallengeId.get(oldCid) === row.signToken) {
+      this._byChallengeId.delete(oldCid);
+    }
+    stored.challengeId = challengeId;
+    // Token TTL must not exceed challenge TTL (arch-02)
+    stored.expiresAtMs = Math.min(stored.expiresAtMs, expiresAtMs);
+    this._byChallengeId.set(challengeId, row.signToken);
+    return true;
+  }
+
+  /**
    * @param {string} challengeId
    * @param {number} [nowMs]
    * @returns {null | string}
