@@ -4,7 +4,8 @@
 # PORT / SUPABASE_* / CAPY_BEARER_SECRET from env at runtime — never bake secrets
 # (AC-H02 / AC-S04 class). Green unit/`npm test` ≠ REQ-09 / Phase 2 Done.
 
-FROM node:20-alpine
+# supabase-js ≥2.119 needs Node 22+ native WebSocket (Auth Admin createClient boot).
+FROM node:22-alpine
 
 WORKDIR /app
 
