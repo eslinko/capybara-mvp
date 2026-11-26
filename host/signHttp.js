@@ -78,8 +78,9 @@ function renderSignPageHtml(signToken, bootstrap) {
     #status-steps li.fail{opacity:1;color:#a00}
     #outcome{margin-top:1rem;display:none}
     #outcome.visible{display:block}
-    #copy-actions{margin-top:0.75rem;display:none}
-    #copy-actions.visible{display:block}
+    #copy-actions,#bootstrap-assist{margin-top:0.75rem;display:none}
+    #copy-actions.visible,#bootstrap-assist.visible{display:block}
+    #bootstrap-result{margin-top:0.5rem;white-space:pre-wrap}
     .mono{font-family:ui-monospace,monospace;word-break:break-all}
   </style>
 </head>
@@ -111,15 +112,65 @@ function renderSignPageHtml(signToken, bootstrap) {
     <button type="button" id="btn-copy-bearer">Copy Bearer</button>
     <button type="button" id="btn-copy-verify">Copy verify JSON</button>
   </div>
+  <div id="bootstrap-assist" data-capy-bootstrap="a1-dual-proof">
+    <p><strong>Founder bootstrap assist (A1)</strong> — dual proof · same object twice when parent=pool · no founder-only invent</p>
+    <button type="button" id="btn-copy-bootstrap">Copy bootstrap JSON</button>
+    <button type="button" id="btn-post-bootstrap">POST /auth/bootstrap</button>
+    <div id="bootstrap-result"></div>
+  </div>
   <script>
     window.__CAPY_SIGN_BOOTSTRAP__ = ${bootstrapJson};
     window.__CAPY_SIGN_TOKEN__ = ${tokenJson};
     window.__CAPY_LAST_VERIFY__ = null;
+    window.__CAPY_LAST_BOOTSTRAP_BODY__ = null;
   </script>
   <script src="/sign/client.js"></script>
 </body>
 </html>
 `;
+}
+
+/**
+ * A1 dual-proof bootstrap body from one captured verify AddressProof.
+ * Same object for poolProof+parentProof when parent=pool (AUTH-06 / AC-A06).
+ * Does **not** invent founder-only / split-bootstrap / late pool API.
+ *
+ * @param {unknown} verifyJson
+ * @returns {{ ok: true, body: object } | { ok: false, error: string, message: string }}
+ */
+function buildBootstrapAssistBody(verifyJson) {
+  if (!verifyJson || typeof verifyJson !== 'object' || Array.isArray(verifyJson)) {
+    return {
+      ok: false,
+      error: 'EAUTH_BOOTSTRAP_MISSING_PROOF',
+      message: 'verify capture Absent',
+    };
+  }
+  const proof = /** @type {{ proof?: unknown, address?: unknown }} */ (verifyJson).proof;
+  if (!proof || typeof proof !== 'object' || Array.isArray(proof)) {
+    return {
+      ok: false,
+      error: 'EAUTH_BOOTSTRAP_MISSING_PROOF',
+      message: 'proof field required for bootstrap body',
+    };
+  }
+  const address =
+    typeof verifyJson.address === 'string' && verifyJson.address.trim()
+      ? verifyJson.address.trim()
+      : typeof /** @type {{ address?: unknown }} */ (proof).address === 'string'
+        ? String(/** @type {{ address: string }} */ (proof).address).trim()
+        : '';
+  // A1: dual proof fields always — same proof object twice for same-address path.
+  /** @type {Record<string, unknown>} */
+  const body = {
+    poolProof: proof,
+    parentProof: proof,
+  };
+  if (address) {
+    body.poolAddress = address;
+    body.parentAddress = address;
+  }
+  return { ok: true, body };
 }
 
 /**
@@ -130,6 +181,7 @@ function renderSignClientBrowserJs() {
   // Inline a minimal browser adapter that talks to page globals + ethereum.
   // Encoding matches host/personalSignEncoding.js (ethers-free UTF-8→hex).
   // WPROOF-08: ordered steps · userId surface · copy · fail codes · POC banner (HTML).
+  // WPROOF-09: A1 dual-proof bootstrap assist (copy + optional POST).
   return `'use strict';
 (function () {
   var STEP_ORDER = ['bind', 'connect', 'sign', 'verify', 'outcome'];
@@ -172,23 +224,60 @@ function renderSignClientBrowserJs() {
     advanceTo(step);
     markStep(step, 'fail');
   }
+  function setBootstrapResult(text, isErr) {
+    var el = document.getElementById('bootstrap-result');
+    if (!el) return;
+    el.textContent = text || '';
+    el.className = isErr ? 'err' : '';
+  }
+  /** A1 dual-proof: poolProof+parentProof from one captured proof (same object twice). */
+  function buildBootstrapAssistBody(verifyJson) {
+    if (!verifyJson || typeof verifyJson !== 'object') {
+      return { ok: false, error: 'EAUTH_BOOTSTRAP_MISSING_PROOF', message: 'verify capture Absent' };
+    }
+    var proof = verifyJson.proof;
+    if (!proof || typeof proof !== 'object') {
+      return { ok: false, error: 'EAUTH_BOOTSTRAP_MISSING_PROOF', message: 'proof field required for bootstrap body' };
+    }
+    var address = (typeof verifyJson.address === 'string' && verifyJson.address.trim())
+      ? verifyJson.address.trim()
+      : (proof.address ? String(proof.address).trim() : '');
+    var body = { poolProof: proof, parentProof: proof };
+    if (address) {
+      body.poolAddress = address;
+      body.parentAddress = address;
+    }
+    return { ok: true, body: body };
+  }
+  function refreshBootstrapBody() {
+    var built = buildBootstrapAssistBody(window.__CAPY_LAST_VERIFY__);
+    window.__CAPY_LAST_BOOTSTRAP_BODY__ = built.ok ? built.body : null;
+    return built;
+  }
   function hideCapture() {
     var outcome = document.getElementById('outcome');
     var copy = document.getElementById('copy-actions');
+    var boot = document.getElementById('bootstrap-assist');
     if (outcome) outcome.className = '';
     if (copy) copy.className = '';
+    if (boot) boot.className = '';
     window.__CAPY_LAST_VERIFY__ = null;
+    window.__CAPY_LAST_BOOTSTRAP_BODY__ = null;
+    setBootstrapResult('');
   }
   function showSuccessCapture(json) {
     window.__CAPY_LAST_VERIFY__ = json;
     var outcome = document.getElementById('outcome');
     var copy = document.getElementById('copy-actions');
+    var boot = document.getElementById('bootstrap-assist');
     var uid = document.getElementById('out-userid');
     var addr = document.getElementById('out-address');
     if (uid) uid.textContent = json.userId != null ? String(json.userId) : '';
     if (addr) addr.textContent = json.address != null ? String(json.address) : '';
     if (outcome) outcome.className = 'visible';
     if (copy) copy.className = 'visible';
+    if (boot) boot.className = 'visible';
+    refreshBootstrapBody();
   }
   function copyText(label, text) {
     var statusEl = document.getElementById('status');
@@ -390,6 +479,59 @@ function renderSignClientBrowserJs() {
     btnVerify.addEventListener('click', function () {
       var v = window.__CAPY_LAST_VERIFY__;
       copyText('verify JSON', v != null ? JSON.stringify(v) : '');
+    });
+  }
+  var btnCopyBoot = document.getElementById('btn-copy-bootstrap');
+  var btnPostBoot = document.getElementById('btn-post-bootstrap');
+  if (btnCopyBoot) {
+    btnCopyBoot.addEventListener('click', function () {
+      var built = refreshBootstrapBody();
+      if (!built.ok) {
+        setBootstrapResult(built.error + (built.message ? ' — ' + built.message : ''), true);
+        setStatus(document.getElementById('status'), 'Copy bootstrap failed: ' + built.error, true);
+        return;
+      }
+      copyText('bootstrap JSON', JSON.stringify(built.body));
+      setBootstrapResult('Bootstrap body ready (A1 dual-proof · poolProof=parentProof when same address).');
+    });
+  }
+  if (btnPostBoot) {
+    btnPostBoot.addEventListener('click', async function () {
+      var statusEl = document.getElementById('status');
+      var built = refreshBootstrapBody();
+      if (!built.ok) {
+        setBootstrapResult(built.error + (built.message ? ' — ' + built.message : ''), true);
+        setStatus(statusEl, 'Bootstrap failed: ' + built.error, true);
+        return;
+      }
+      setStatus(statusEl, 'POST /auth/bootstrap…');
+      setBootstrapResult('POST /auth/bootstrap…');
+      try {
+        var res = await fetch('/auth/bootstrap', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(built.body)
+        });
+        var json = await res.json().catch(function () { return {}; });
+        if (!res.ok || !json.ok) {
+          var code = json.error || res.status;
+          var msg = json.message ? String(json.message) : '';
+          var line = 'Bootstrap failed: ' + code + (msg ? ' — ' + msg : '') + ' (HTTP ' + res.status + ')';
+          setBootstrapResult(line, true);
+          setStatus(statusEl, line, true);
+          return;
+        }
+        var okLine =
+          'bootstrapped: ' + (json.bootstrapped === true ? 'true' : String(json.bootstrapped)) +
+          ' · familyId: ' + (json.familyId || '') +
+          (json.sameAddress != null ? ' · sameAddress: ' + json.sameAddress : '');
+        setBootstrapResult(okLine);
+        setStatus(statusEl, okLine);
+      } catch (err) {
+        var fail = 'Bootstrap failed: ' + String(err && err.message ? err.message : err);
+        setBootstrapResult(fail, true);
+        setStatus(statusEl, fail, true);
+      }
     });
   }
 })();
@@ -764,6 +906,7 @@ module.exports = {
   tryHandleSignRequest,
   renderSignPageHtml,
   renderSignClientBrowserJs,
+  buildBootstrapAssistBody,
   matchSignPath,
   createSignSessionController,
   parsePublicBaseUrl,
