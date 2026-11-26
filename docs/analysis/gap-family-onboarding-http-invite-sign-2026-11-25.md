@@ -138,6 +138,20 @@ sequenceDiagram
 | **G8** | Survive redeploy | In-memory Membership+Invite | Durability **Absent** · Residual continued (EDGE-08 honesty · no invent DDL) | [EDGE-08](../tasks/backlog-stories/capybara-identity-http-edge/STORY-SCR-CAPY-EDGE-08-membership-invite-survive-redeploy.md) · [`MEMBERSHIP-INVITE-REDEPLOY-RESIDUAL.md`](../manuals/MEMBERSHIP-INVITE-REDEPLOY-RESIDUAL.md) |
 | **G9** | Live ACL proof | Unit probe · live unauth deny Pass (EDGE-09) | Founder/cast live allow **Residual** · REQ-08 Accepted not invented | [EDGE-09](../tasks/backlog-stories/capybara-identity-http-edge/STORY-SCR-CAPY-EDGE-09-live-acl-profile-self-proof.md) · [`LIVE-ACL-PROFILE-SELF-PROOF.md`](../manuals/LIVE-ACL-PROFILE-SELF-PROOF.md) |
 
+### Sign POC operator capture (REQ-11 · `2026-11-26`)
+
+Same-host `/sign` residual (no isolated Sign URL). Target wallet UX later = DOGEstonia Connector.
+
+| ID | Target | Present | Gap | Story |
+|----|--------|---------|-----|-------|
+| **G-POC-01** | Ordered Sign process statuses | Single status line | Opaque debug | [WPROOF-08](../tasks/backlog-stories/capybara-wallet-address-proof/STORY-SCR-CAPY-WPROOF-08-sign-poc-debug-statuses-and-copy.md) |
+| **G-POC-02** | Copy proof/token/verify JSON without DevTools | Verify JSON discarded in UI | Capture Absent | WPROOF-08 |
+| **G-POC-03** | Visible Auth `userId` on success | Not shown | Auth creation opaque | WPROOF-08 |
+| **G-POC-04** | Founder bootstrap from Sign success | Bootstrap HTTP only | No page assist | [WPROOF-09](../tasks/backlog-stories/capybara-wallet-address-proof/STORY-SCR-CAPY-WPROOF-09-sign-poc-bootstrap-assist.md) |
+| **G-POC-05** | Finish cast via API/tests after bootstrap | INV-04/05 Present | No packaged API/test cast path | [INV-07](../tasks/backlog-stories/capybara-family-invite/STORY-SCR-CAPY-INV-07-api-test-family-cast-completion.md) |
+
+REQ: [`../requirements/11-sign-poc-debug-and-family-api-path.md`](../requirements/11-sign-poc-debug-and-family-api-path.md) · Arch: [`../architecture/10-wallet-address-proof-client/04-poc-debug-surface-and-bootstrap-assist.md`](../architecture/10-wallet-address-proof-client/04-poc-debug-surface-and-bootstrap-assist.md).
+
 ---
 
 ## 4. Dependency of gaps (implement order hint — not a story scaffold)
@@ -168,6 +182,7 @@ Minimal path to operator browser scenario: **G3 + G4 + G5** (plus bootstrap path
 | [`../requirements/08-identity-http-edge-on-host.md`](../requirements/08-identity-http-edge-on-host.md) | Edge + ACL (as-is stale until refresh) |
 | [`../requirements/09-live-supabase-auth-port.md`](../requirements/09-live-supabase-auth-port.md) | Live Auth port Accepted |
 | [`../requirements/10-wallet-address-proof-client.md`](../requirements/10-wallet-address-proof-client.md) | Sign channels Accepted |
+| [`../requirements/11-sign-poc-debug-and-family-api-path.md`](../requirements/11-sign-poc-debug-and-family-api-path.md) | Sign POC debug + family API path Draft |
 | [`../manuals/IDENTITY-HTTP-EDGE-MANUAL.md`](../manuals/IDENTITY-HTTP-EDGE-MANUAL.md) | Host auth/bootstrap/probe ops |
 | [`../manuals/WALLET-ADDRESS-PROOF-OPERATOR.md`](../manuals/WALLET-ADDRESS-PROOF-OPERATOR.md) | Mint / Channel A/B |
 
@@ -187,4 +202,5 @@ Minimal path to operator browser scenario: **G3 + G4 + G5** (plus bootstrap path
 
 1. REQ-level stories Present for G1–G9 (see §3) — **Technical subtasks Present** on each story · **no implement** until focus dialog / P1.3.  
 2. Recommended execute order: EDGE-07 → AUTH-05/06 → INV-04 → WPROOF-07 → INV-05 → INV-06 → EDGE-08 → EDGE-09.  
-3. Live run: [`FAMILY-ONBOARDING-OPERATOR-SCENARIO.md`](../manuals/FAMILY-ONBOARDING-OPERATOR-SCENARIO.md).
+3. Live run: [`FAMILY-ONBOARDING-OPERATOR-SCENARIO.md`](../manuals/FAMILY-ONBOARDING-OPERATOR-SCENARIO.md).  
+4. **G-POC-01…05** (REQ-11): WPROOF-08 → WPROOF-09 → INV-07 — Technical subtasks Present · same-host Sign POC · **no implement** until focus.

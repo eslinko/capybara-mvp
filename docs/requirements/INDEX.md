@@ -1,6 +1,6 @@
 # Capybara requirements index
 
-**Updated:** `2026-11-21T13:43:45Z`  
+**Updated:** `2026-11-24` (REQ-10 Accepted · live dual-channel Railway) · prior `2026-11-23` (REQ-10 locks) · `2026-11-21T13:43:45Z`  
 **Profile:** `capybara` · focus `capybara/`  
 **Target roadmap:** [`../tasks/backlog-stories/ROADMAP.md`](../tasks/backlog-stories/ROADMAP.md)  
 **Parent product:** [`../product/CAPYBARA-FAMILY-MVP-PRODUCT-REQUIREMENTS.md`](../product/CAPYBARA-FAMILY-MVP-PRODUCT-REQUIREMENTS.md)  
@@ -23,9 +23,10 @@
 | REQ-05 | [`05-family-membership-parent-adds-child.md`](05-family-membership-parent-adds-child.md) | Draft — INV-01…03 modules Present; token/`invite_member` id residual | **Phase 0** |
 | REQ-06 | [`06-role-scoped-capability-catalog.md`](06-role-scoped-capability-catalog.md) | Draft — CAT-01…03 Done (alias); live host ACL = Phase 2 | **Phase 0** |
 | REQ-07 | [`07-railway-family-host.md`](07-railway-family-host.md) | **Accepted** — host Present; remote health OK | **Phase 1** |
-| REQ-08 | [`08-identity-http-edge-on-host.md`](08-identity-http-edge-on-host.md) | Draft — Phase 2 locks; HTTP auth edge Absent | **Phase 2** |
-| REQ-09 | [`09-live-supabase-auth-port.md`](09-live-supabase-auth-port.md) | Draft — Phase 2 locks; live Supabase port residual | **Phase 2** |
-| REQ-10 | [`10-wallet-address-proof-client.md`](10-wallet-address-proof-client.md) | Draft — Phase 2 locks; wallet client Absent | **Phase 2** |
+| REQ-08 | [`08-identity-http-edge-on-host.md`](08-identity-http-edge-on-host.md) | Draft — EDGE-01…04 unit Present; remote identity residual honesty | **Phase 2** |
+| REQ-09 | [`09-live-supabase-auth-port.md`](09-live-supabase-auth-port.md) | **Accepted** `2026-11-25` — SBPORT-01…05 · live bind Pass | **Phase 2** |
+| REQ-10 | [`10-wallet-address-proof-client.md`](10-wallet-address-proof-client.md) | **Accepted** `2026-11-24` — live Channel A+B Railway; WPROOF Done | **Phase 2** |
+| REQ-11 | [`11-sign-poc-debug-and-family-api-path.md`](11-sign-poc-debug-and-family-api-path.md) | **Draft** `2026-11-26` — Sign POC debug capture + family API path | **Phase 2 residual POC** |
 
 ---
 
@@ -61,11 +62,11 @@
 
 | Item | Status |
 |------|--------|
-| REQ-08 Identity HTTP edge on host | Present on disk; HTTP auth/capability routes **Absent** until implement |
-| REQ-09 Live Supabase Auth port | Present on disk; live port still residual throw until implement |
-| REQ-10 Wallet address-proof client | Present on disk; wallet client **Absent** until implement |
-| Architect / backlog identity stories | Not materialized yet |
-| Live unauth deny + role ACL (gate) | Pending |
-| Operator accept REQ-08…10 AC | Pending |
+| REQ-08 Identity HTTP edge on host | REQ Present; host `/auth/*` + probe **Present** (EDGE unit); remote live identity = residual honesty |
+| REQ-09 Live Supabase Auth port | **Accepted** `2026-11-25` — SBPORT-01…05 Done · Pass [`../manuals/evidence/live-supabase-auth-bind-result.md`](../manuals/evidence/live-supabase-auth-bind-result.md) |
+| REQ-10 Wallet address-proof client | **Accepted** `2026-11-24` — dual-channel live PASS; manuals/matrix/evidence Present |
+| Architect / wallet-proof crypto + stories | Crypto+arch Present; backlog [`../tasks/backlog-stories/capybara-wallet-address-proof/`](../tasks/backlog-stories/capybara-wallet-address-proof/) WPROOF-01…06 **Done** + live A/B |
+| Live unauth deny + role ACL (gate) | Pending (REQ-08) |
+| Operator accept REQ-08…10 AC | REQ-09/10 **Accepted**; REQ-08 Pending |
 
-**Phase 2 Done** when AC-I* / AC-S* / AC-W* accepted and ROADMAP Phase 2 → Done (unauth denied; role ACL live on host). REQ Present ≠ identity Done.
+**Phase 2 Done** when AC-I* / AC-S* / AC-W* accepted and ROADMAP Phase 2 → Done (unauth denied; role ACL live on host). REQ-09/10 Accepted ≠ Phase 2 Done — next **REQ-08** ACL.

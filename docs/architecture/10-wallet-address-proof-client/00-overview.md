@@ -101,6 +101,7 @@ Mint fail (`CAPY_PUBLIC_BASE_URL` / mint secret / bad address) → exit ≠ 0 be
 | Crypto encoding + client UX | [`01-personal-sign-and-verify.md`](./01-personal-sign-and-verify.md) |
 | Channels + token URL | [`02-channels-and-sign-token.md`](./02-channels-and-sign-token.md) |
 | Story coverage gate | [`03-story-coverage-gate.md`](./03-story-coverage-gate.md) |
+| POC debug + bootstrap assist (REQ-11) | [`04-poc-debug-surface-and-bootstrap-assist.md`](./04-poc-debug-surface-and-bootstrap-assist.md) |
 
 ## Explicit OOS
 
