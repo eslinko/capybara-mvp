@@ -83,8 +83,9 @@ Expected after (when live Pass): no Auth row for founder synthetic email `{norma
 | Target | HTTP API (Bearer founder) `createInvite` for `TRISTAN_ADDRESS` then `BASTIAN_ADDRESS` |
 | Present | Host `POST /auth/invite` wires core `createInvite` · InviteStore on `createAuthRuntime` (INV-04) |
 | Status | **Contract Present (AUTH HTTP / G3)** — unit harness green; **≠** family onboarding Done (AC-G3-05) · live Tristan/Bastian Pass not claimed |
+| Cast package | **G-POC-05 / INV-07:** curl + harness [`FAMILY-CAST-API-TEST-CHECKLIST.md`](FAMILY-CAST-API-TEST-CHECKLIST.md) · consumes Bearer/`familyId` from WPROOF-08/09 capture (or fixtures) |
 
-**Operator path:** authenticated parent `POST /auth/invite` with `to` + `role: "child"` + `familyId`; expect open invite id. Fail-closed if family not bootstrapped / non-parent / empty `to` / address role conflict (REQ-05). No opaque invite token.
+**Operator path:** authenticated parent `POST /auth/invite` with `to` + `role: "child"` + `familyId`; expect open invite id. Fail-closed if family not bootstrapped / non-parent / empty `to` / address role conflict (REQ-05). No opaque invite token. Curl shapes + cast harness: [`FAMILY-CAST-API-TEST-CHECKLIST.md`](FAMILY-CAST-API-TEST-CHECKLIST.md).
 
 ---
 
@@ -190,4 +191,5 @@ Full table: [`../analysis/gap-family-onboarding-http-invite-sign-2026-11-25.md`]
 - In-memory membership/invite = redeploy wipe (**G8 Residual continued** · EDGE-08) — see [`MEMBERSHIP-INVITE-REDEPLOY-RESIDUAL.md`](MEMBERSHIP-INVITE-REDEPLOY-RESIDUAL.md). Do **not** invent multi-step live Pass across Railway redeploy while stores are process memory.  
 - Bearer/SignToken TTL wipe on restart is allowed honesty — ≠ membership durability Done.  
 - Do not paste private keys from `.env` into chats, evidence, or git.  
-- **Sign POC capture (REQ-11):** WPROOF-08 Done · WPROOF-09 Done (unit) — Copy bootstrap JSON · optional POST `/auth/bootstrap` (A1 dual-proof · same proof twice when parent=pool) · replay/missing-proof fail-closed · no founder-only / late pool invent · live Pass **not** invented. Next: [INV-07](../tasks/backlog-stories/capybara-family-invite/STORY-SCR-CAPY-INV-07-api-test-family-cast-completion.md). Same host only; Connector = target UX later.
+- **Sign POC capture (REQ-11):** WPROOF-08 Done · WPROOF-09 Done (unit) — Copy bootstrap JSON · optional POST `/auth/bootstrap` (A1 dual-proof · same proof twice when parent=pool) · replay/missing-proof fail-closed · no founder-only / late pool invent · live Pass **not** invented. Same host only; Connector = target UX later.
+- **Cast API/test (G-POC-05 / INV-07):** checklist + harness [`FAMILY-CAST-API-TEST-CHECKLIST.md`](FAMILY-CAST-API-TEST-CHECKLIST.md) · Present INV-04/05 only · harness ≠ invent live MetaMask / family onboarding Done · **G8 Residual** mid-redeploy continues ([`MEMBERSHIP-INVITE-REDEPLOY-RESIDUAL.md`](MEMBERSHIP-INVITE-REDEPLOY-RESIDUAL.md)).
