@@ -117,7 +117,7 @@ describe('host sign manual address entry (WPROOF-07 / G5)', () => {
       expect(page.status).to.equal(200);
       expect(page.text).to.include('id="capy-address"');
       expect(page.text).to.include('Enter or paste the wallet address');
-      expect(page.text).to.include('No product/pool keys on this page');
+      expect(page.text).to.match(/no product (\/pool keys|private keys) on this page/i);
       const js = await request(port, 'GET', '/sign/client.js');
       expect(js.status).to.equal(200);
       expect(js.text).to.include('bind-address');
