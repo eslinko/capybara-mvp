@@ -216,6 +216,7 @@ describe('MCP-04 debt/advance tools + journals Soft≠Live', () => {
     const affirm = async () => 'да';
 
     const mcpCreate = await executeFamilyAction({
+      skipConfirmGate: true,
       toolId: 'debt.create',
       args: {
         wallet: 'tristan',
@@ -266,6 +267,7 @@ describe('MCP-04 debt/advance tools + journals Soft≠Live', () => {
     expect(cliShow.card.original).to.equal('80');
 
     const mcpShow = await executeFamilyAction({
+      skipConfirmGate: true,
       toolId: 'debt.show',
       args: { wallet: 'tristan', debtId: 'mcp04-d1' },
       router,
@@ -285,6 +287,7 @@ describe('MCP-04 debt/advance tools + journals Soft≠Live', () => {
     const affirm = async () => 'да';
 
     const debtCreate = await executeFamilyAction({
+      skipConfirmGate: true,
       toolId: 'debt.create',
       args: {
         wallet: 'bastian',
@@ -303,6 +306,7 @@ describe('MCP-04 debt/advance tools + journals Soft≠Live', () => {
     expect(debtCreate.result.remainder).to.equal('50');
 
     const debtSummary = await executeFamilyAction({
+      skipConfirmGate: true,
       toolId: 'debt.summary',
       args: { wallet: 'bastian' },
       router,
@@ -315,6 +319,7 @@ describe('MCP-04 debt/advance tools + journals Soft≠Live', () => {
     expect(debtSummary.action).to.equal(6);
 
     const debtShow = await executeFamilyAction({
+      skipConfirmGate: true,
       toolId: 'debt.show',
       args: { wallet: 'bastian', debtId: 'mcp04-d2' },
       router,
@@ -326,6 +331,7 @@ describe('MCP-04 debt/advance tools + journals Soft≠Live', () => {
     expect(debtShow.result.card.remainder).to.equal('50');
 
     const debtForgive = await executeFamilyAction({
+      skipConfirmGate: true,
       toolId: 'debt.forgive',
       args: {
         wallet: 'bastian',
@@ -344,6 +350,7 @@ describe('MCP-04 debt/advance tools + journals Soft≠Live', () => {
     expect(debtForgive.result.remainder).to.equal('40');
 
     const advanceIssue = await executeFamilyAction({
+      skipConfirmGate: true,
       toolId: 'advance.issue',
       args: {
         wallet: 'tristan',
@@ -373,6 +380,7 @@ describe('MCP-04 debt/advance tools + journals Soft≠Live', () => {
     expect(advEvents[0].tx_hash).to.equal('mock:mcp04-a1');
 
     const advanceShow = await executeFamilyAction({
+      skipConfirmGate: true,
       toolId: 'advance.show',
       args: { wallet: 'tristan', advanceId: 'mcp04-a1' },
       router,
@@ -383,6 +391,7 @@ describe('MCP-04 debt/advance tools + journals Soft≠Live', () => {
     expect(advanceShow.ok).to.equal(true);
 
     const advanceSummary = await executeFamilyAction({
+      skipConfirmGate: true,
       toolId: 'advance.summary',
       args: { wallet: 'tristan' },
       router,
@@ -444,6 +453,7 @@ describe('MCP-04 debt/advance tools + journals Soft≠Live', () => {
     const captures = [];
     await Promise.all([
       executeFamilyAction({
+        skipConfirmGate: true,
         toolId: 'debt.summary',
         args: { wallet: 'tristan' },
         router,
@@ -454,6 +464,7 @@ describe('MCP-04 debt/advance tools + journals Soft≠Live', () => {
         },
       }),
       executeFamilyAction({
+        skipConfirmGate: true,
         toolId: 'debt.summary',
         args: { wallet: 'bastian' },
         router,
