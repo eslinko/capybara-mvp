@@ -2,16 +2,17 @@
 
 **Profile:** `capybara` · **REQ:** [`../requirements/08-identity-http-edge-on-host.md`](../requirements/08-identity-http-edge-on-host.md)  
 **Architecture:** [`../architecture/08-identity-http-edge-on-host/`](../architecture/08-identity-http-edge-on-host/)  
-**Stories:** EDGE-01…06 · **Host entry:** `npm start` → [`../../host/start.js`](../../host/start.js)
+**Stories:** EDGE-01…06 · EDGE-11 (CORS) · **Host entry:** `npm start` → [`../../host/start.js`](../../host/start.js)
 
 This manual is the AC-I07 deliverable. It documents how to bootstrap and verify the identity HTTP edge on the same process as `GET /health`.
 
 ---
 
-## 1. Honesty (AC-I06)
+## 1. Honesty (AC-I06 · Soft≠Live)
 
 - **`cd capybara && npm test` alone ≠ Phase 2 identity Done.**
-- Unit/harness green proves host compose under test (EDGE-01…03). It does **not** prove live DualAuth on Railway, live Supabase (REQ-09), or MetaMask POC (REQ-10).
+- Unit/harness green proves host compose under test (EDGE-01…03 · EDGE-11 CORS). It does **not** prove live DualAuth on Railway, live Supabase (REQ-09), MetaMask POC (REQ-10), or **Live Connector Pass**.
+- EDGE-11 unit green ≠ invent Live Connector CORS Pass (AC-EDGE-11-04). Same-origin Connector mock ≠ CORS substitute.
 - Do **not** claim Phase 2 Done from this manual or from unit green alone.
 
 ---
@@ -26,6 +27,7 @@ Required for identity routes (`/auth/*`, `/v1/capabilities/profile.self`) — pr
 | `SUPABASE_SECRET_KEY` | Server secret key (optional alias: `SUPABASE_SERVICE_ROLE_KEY`) |
 | `CAPY_BEARER_SECRET` | Bearer signing secret |
 | `PORT` | Listen port (`npm start` fail-closed without it) |
+| `CAPY_CONNECTOR_CORS_ORIGINS` | Optional comma-separated extra Connector Origins for `/auth/challenge|verify` CORS (EDGE-11). Defaults always allow `http://127.0.0.1:8080` + `http://localhost:8080`. Never `*`. Soft≠Live. |
 
 Bootstrap address settings (**separate fields** — never merge):
 
