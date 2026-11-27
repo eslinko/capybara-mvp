@@ -6,6 +6,7 @@
 **Code:** [`../../host/authHttp.js`](../../host/authHttp.js) `createAuthRuntime` · InviteStore · MembershipStore
 
 > **Disposition (EDGE-08 P3):** Durability of membership + invite across Railway redeploy = **Absent / Residual continued**.  
+> Product target: [`../requirements/12-postgres-family-identity-and-journals.md`](../requirements/12-postgres-family-identity-and-journals.md) (REQ-12 Draft).  
 > Do **not** invent Phase 3 DDL / durable store Done. Do **not** invent live multi-step onboarding Pass across redeploys.  
 > `npm test` / docs alone ≠ durability Done (AC-G8-04).
 
@@ -31,7 +32,7 @@ After restart: family memberships wiped → re-bootstrap required; open invites 
 | AC-G8-01 | After redeploy, prior memberships resolvable for DualAuth/RoleGate | **Absent** — Residual |
 | AC-G8-02 | Open invites accept-able after redeploy | **Absent** — Residual |
 
-**Store choice / schema:** OOS this wave — Phase 3 journals ROADMAP may consume. No invent DDL here.
+**Store choice / schema:** OOS this wave — consumed by REQ-12 (Postgres primary). No invent DDL here.
 
 ---
 

@@ -1,6 +1,6 @@
 # Capybara requirements index
 
-**Updated:** `2026-11-24` (REQ-10 Accepted · live dual-channel Railway) · prior `2026-11-23` (REQ-10 locks) · `2026-11-21T13:43:45Z`  
+**Updated:** `2026-11-27` (REQ-12 Draft · Postgres identity+journals+verified proofs) · prior `2026-11-24` (REQ-10 Accepted) · `2026-11-23` · `2026-11-21T13:43:45Z`  
 **Profile:** `capybara` · focus `capybara/`  
 **Target roadmap:** [`../tasks/backlog-stories/ROADMAP.md`](../tasks/backlog-stories/ROADMAP.md)  
 **Parent product:** [`../product/CAPYBARA-FAMILY-MVP-PRODUCT-REQUIREMENTS.md`](../product/CAPYBARA-FAMILY-MVP-PRODUCT-REQUIREMENTS.md)  
@@ -23,10 +23,11 @@
 | REQ-05 | [`05-family-membership-parent-adds-child.md`](05-family-membership-parent-adds-child.md) | Draft — INV-01…03 modules Present; token/`invite_member` id residual | **Phase 0** |
 | REQ-06 | [`06-role-scoped-capability-catalog.md`](06-role-scoped-capability-catalog.md) | Draft — CAT-01…03 Done (alias); live host ACL = Phase 2 | **Phase 0** |
 | REQ-07 | [`07-railway-family-host.md`](07-railway-family-host.md) | **Accepted** — host Present; remote health OK | **Phase 1** |
-| REQ-08 | [`08-identity-http-edge-on-host.md`](08-identity-http-edge-on-host.md) | Draft — EDGE-01…04 unit Present; remote identity residual honesty | **Phase 2** |
+| REQ-08 | [`08-identity-http-edge-on-host.md`](08-identity-http-edge-on-host.md) | Draft — EDGE Present; Connector CORS/domain → EDGE-11/12 Soft≠Live | **Phase 2** |
 | REQ-09 | [`09-live-supabase-auth-port.md`](09-live-supabase-auth-port.md) | **Accepted** `2026-11-25` — SBPORT-01…05 · live bind Pass | **Phase 2** |
-| REQ-10 | [`10-wallet-address-proof-client.md`](10-wallet-address-proof-client.md) | **Accepted** `2026-11-24` — live Channel A+B Railway; WPROOF Done | **Phase 2** |
-| REQ-11 | [`11-sign-poc-debug-and-family-api-path.md`](11-sign-poc-debug-and-family-api-path.md) | **Draft** `2026-11-26` — Sign POC debug capture + family API path | **Phase 2 residual POC** |
+| REQ-10 | [`10-wallet-address-proof-client.md`](10-wallet-address-proof-client.md) | **Accepted** `2026-11-24` — live A+B; Connector target + Sign retire → WPROOF-10 Soft≠Live | **Phase 2** |
+| REQ-11 | [`11-sign-poc-debug-and-family-api-path.md`](11-sign-poc-debug-and-family-api-path.md) | **Draft** — Sign POC residual until WPROOF-10 / Connector adapter wave | **Phase 2 residual POC** |
+| REQ-12 | [`12-postgres-family-identity-and-journals.md`](12-postgres-family-identity-and-journals.md) | **Draft** — arch-12 Present · PGDUR-01…05 Todo · proposal Approved `2026-11-27` | **Phase 3** |
 
 ---
 
@@ -70,3 +71,18 @@
 | Operator accept REQ-08…10 AC | REQ-09/10 **Accepted**; REQ-08 Pending |
 
 **Phase 2 Done** when AC-I* / AC-S* / AC-W* accepted and ROADMAP Phase 2 → Done (unauth denied; role ACL live on host). REQ-09/10 Accepted ≠ Phase 2 Done — next **REQ-08** ACL.
+
+---
+
+## Phase 3 checklist
+
+| Item | Status |
+|------|--------|
+| REQ-12 Postgres family identity + journals + verified proofs | **Draft** Present — arch-12 Present · PGDUR backlog Todo |
+| PGDUR-01…05 stories | Present Todo — [`../tasks/backlog-stories/capybara-postgres-family-identity-and-journals/`](../tasks/backlog-stories/capybara-postgres-family-identity-and-journals/) |
+| Family / Membership / Invite durable across redeploy | Absent (EDGE-08 Residual → PGDUR-02/05) |
+| Verified AddressProof durable (pending challenge ephemeral) | Absent → PGDUR-03 |
+| Activity / advance / debt journals Postgres primary | Absent (NDJSON Present) → PGDUR-04 |
+| Operator accept REQ-12 AC + live redeploy/journal evidence | Pending → PGDUR-05 |
+
+**Phase 3 Done** when AC-P01…P09 accepted and ROADMAP Phase 3 → Done. REQ Draft alone ≠ Done.
