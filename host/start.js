@@ -6,9 +6,11 @@
  *
  * Phase 2: same process mounts `/auth/*` (EDGE-01/02) + `POST /auth/invite` (INV-04) +
  * DualAuthGate→RoleGate capability probe `/v1/capabilities/profile.self` (EDGE-03).
- * Live Supabase port = REQ-09 residual. MembershipStore/InviteStore in-memory residual (EDGE-04/08).
+ * Live Supabase port = REQ-09 residual.
+ * PGDUR-06 Soft≠Live: startup presence reports non-secret store_kind
+ * (postgres | fail-closed | memory-inject). Live cast Pass Residual OK ≠ invent.
  * Host dotenv load via CAPYBARA_DOTENV_PATH before main() (EDGE-05).
- * Unit green alone ≠ Phase 2 Done; family onboarding Done not claimed (AC-I06 / AC-G3-05).
+ * Unit green alone ≠ Phase 2 Done / REQ-12 Done; family onboarding Done not claimed.
  */
 
 const { createHostServer, resolveListenPort, listenHost } = require('./server');
@@ -28,8 +30,15 @@ function main(env = process.env) {
   return listenHost(server, env)
     .then(() => {
       // Port + residual-safe auth class presence — never dump secrets (AC-H02 / AC-I05).
+      // PGDUR-06: include store_kind from composed runtime (no secrets).
+      const storeKind =
+        server.authRuntime && server.authRuntime.storeKind
+          ? server.authRuntime.storeKind
+          : undefined;
       console.error(`capybara host listening on ${String(env.PORT).trim()}`);
-      console.error(describeAuthEnvPresence(env).line);
+      console.error(
+        describeAuthEnvPresence(env, undefined, { storeKind }).line,
+      );
       return server;
     })
     .catch((err) => {

@@ -258,18 +258,26 @@ function loadHostAuthEnvConfig(env, keyMap = PRODUCTION_AUTH_KEY_MAP) {
 
 /**
  * Residual-safe presence flags for auth env classes (no secret values).
+ * PGDUR-06 Soft≠Live: optional `storeKind` (`postgres` | `fail-closed` |
+ * `memory-inject`) — operator SoT without Table Editor guessing.
  *
  * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
  * @param {typeof PRODUCTION_AUTH_KEY_MAP} [keyMap]
+ * @param {{ storeKind?: 'postgres' | 'fail-closed' | 'memory-inject' }} [opts]
  * @returns {{
  *   authEnvOk: boolean,
  *   supabaseUrl: 'set' | 'missing',
  *   supabaseKey: 'set' | 'missing',
  *   bearerSecret: 'set' | 'missing',
+ *   storeKind: 'postgres' | 'fail-closed' | 'memory-inject' | undefined,
  *   line: string
  * }}
  */
-function describeAuthEnvPresence(env = process.env, keyMap = PRODUCTION_AUTH_KEY_MAP) {
+function describeAuthEnvPresence(
+  env = process.env,
+  keyMap = PRODUCTION_AUTH_KEY_MAP,
+  opts = {},
+) {
   const bag = withSupabaseKeyAlias(env || {});
   const flag = (keyName) => {
     const v = bag[keyName];
@@ -280,13 +288,30 @@ function describeAuthEnvPresence(env = process.env, keyMap = PRODUCTION_AUTH_KEY
   const bearerSecret = flag(keyMap.bearerSecret);
   const authEnvOk =
     supabaseUrl === 'set' && supabaseKey === 'set' && bearerSecret === 'set';
-  const line = [
+  const storeKind =
+    opts &&
+    (opts.storeKind === 'postgres' ||
+      opts.storeKind === 'fail-closed' ||
+      opts.storeKind === 'memory-inject')
+      ? opts.storeKind
+      : undefined;
+  const parts = [
     `auth_env_ok=${authEnvOk}`,
     `supabaseUrl=${supabaseUrl}`,
     `supabaseKey=${supabaseKey}`,
     `bearerSecret=${bearerSecret}`,
-  ].join(' ');
-  return { authEnvOk, supabaseUrl, supabaseKey, bearerSecret, line };
+  ];
+  if (storeKind) {
+    parts.push(`store_kind=${storeKind}`);
+  }
+  return {
+    authEnvOk,
+    supabaseUrl,
+    supabaseKey,
+    bearerSecret,
+    storeKind,
+    line: parts.join(' '),
+  };
 }
 
 /**
@@ -406,7 +431,8 @@ function sanitizePublicAuthMessage(message, config) {
  * @returns {{
  *   membershipStore: object,
  *   inviteStore: object,
- *   verifiedProofStore: object
+ *   verifiedProofStore: object,
+ *   storeKind: 'postgres' | 'fail-closed' | 'memory-inject'
  * }}
  */
 function resolveMembershipInviteStores(config, opts = {}) {
@@ -418,6 +444,7 @@ function resolveMembershipInviteStores(config, opts = {}) {
       membershipStore: opts.membershipStore || new MembershipStore(),
       inviteStore: opts.inviteStore || new InviteStore(),
       verifiedProofStore: memoryProof,
+      storeKind: 'memory-inject',
     };
   }
   if (!config) {
@@ -426,6 +453,7 @@ function resolveMembershipInviteStores(config, opts = {}) {
       membershipStore: new FailClosedMembershipStore(reason),
       inviteStore: new FailClosedInviteStore(reason),
       verifiedProofStore: memoryProof,
+      storeKind: 'fail-closed',
     };
   }
   // Postgres only when createClient provided (host compose / inject).
@@ -438,6 +466,7 @@ function resolveMembershipInviteStores(config, opts = {}) {
       membershipStore: new FailClosedMembershipStore(reason),
       inviteStore: new FailClosedInviteStore(reason),
       verifiedProofStore: memoryProof,
+      storeKind: 'fail-closed',
     };
   }
   try {
@@ -452,6 +481,7 @@ function resolveMembershipInviteStores(config, opts = {}) {
       verifiedProofStore:
         opts.verifiedProofStore ||
         new PostgresVerifiedAddressProofStore({ client }),
+      storeKind: 'postgres',
     };
   } catch (err) {
     const reason =
@@ -461,6 +491,7 @@ function resolveMembershipInviteStores(config, opts = {}) {
       membershipStore: new FailClosedMembershipStore(reason),
       inviteStore: new FailClosedInviteStore(reason),
       verifiedProofStore: memoryProof,
+      storeKind: 'fail-closed',
     };
   }
 }
@@ -501,6 +532,8 @@ function createAuthRuntime(env = process.env, opts = {}) {
     membershipStore: stores.membershipStore,
     inviteStore: stores.inviteStore,
     verifiedProofStore: stores.verifiedProofStore,
+    /** @type {'postgres' | 'fail-closed' | 'memory-inject'} */
+    storeKind: stores.storeKind,
     nowMs: opts.nowMs,
   };
 }
@@ -999,7 +1032,9 @@ async function tryHandleAuthRequest(req, res, runtime) {
       runtime.config,
     );
     if (mapped.code === 'EAUTH_ENV_MISSING') {
-      const presence = describeAuthEnvPresence(runtime.env);
+      const presence = describeAuthEnvPresence(runtime.env, undefined, {
+        storeKind: runtime.storeKind,
+      });
       console.error(
         `${req.method || 'UNKNOWN'} ${path} ${mapped.status} ${mapped.code} ${publicMessage} ${presence.line}`,
       );

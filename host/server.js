@@ -73,7 +73,7 @@ function createHostServer(options = {}) {
     runtime.signTokens = options.signTokenStore;
   }
 
-  return http.createServer((req, res) => {
+  const server = http.createServer((req, res) => {
     Promise.resolve(tryHandleAuthRequest(req, res, runtime))
       .then((authHandled) => {
         if (authHandled) return true;
@@ -115,6 +115,9 @@ function createHostServer(options = {}) {
         res.end(body);
       });
   });
+  // PGDUR-06 Soft≠Live: expose composed runtime for startup presence (store_kind).
+  server.authRuntime = runtime;
+  return server;
 }
 
 /**
