@@ -1,10 +1,11 @@
 'use strict';
 
 /**
- * MCP-01/02 — in-process MCP Streamable HTTP/SSE + DualAuth→parent→RoleGate Soft.
+ * MCP-01/02/03 — in-process MCP Streamable HTTP/SSE + DualAuth→parent→RoleGate Soft
+ * + family tools 0–4 via actionInvoker (isolated env · not bare router.route).
  * Path lock: `/mcp` (+ trailing slash). Foreign paths → false without writing res.
  * Enable gate: caller mounts only when CAPY_MCP_ENABLED=1 (fail-closed otherwise).
- * Soft≠Live · Action invoke OOS (MCP-03/04) · ≠ invent Live Pass / Phase 4 Done.
+ * Soft≠Live · ≠ invent Live Pass / Phase 4 Done.
  */
 
 const { z } = require('zod');
@@ -20,6 +21,11 @@ const {
   PARENT_ONLY_MCP_TOOLS,
   assertNoChildToolsRegistered,
 } = require('./mcpToolRegistry');
+const {
+  FAMILY_MCP_TOOLS,
+  assertNoExcludedToolsRegistered,
+} = require('./toolRegistry');
+const { executeFamilyAction } = require('./actionInvoker');
 
 const MCP_TOOL_ARGS_SHAPE = {
   familyId: z.string().optional(),
@@ -48,17 +54,25 @@ function isMcpEnabled(env) {
 }
 
 /**
- * Soft MCP server — parent-only gate-probe tools (AC-M05). No Action invoke.
+ * Soft MCP server — MCP-02 gate-probe tools (AC-M05) + MCP-03 family tools 0–4.
  *
  * @param {{
  *   req?: import('http').IncomingMessage,
  *   runtime?: ReturnType<typeof import('../authHttp').createAuthRuntime>,
+ *   router?: object | null,
+ *   confirmFn?: (question: string) => Promise<string>,
+ *   isTty?: boolean,
+ *   baseEnv?: NodeJS.ProcessEnv | Record<string, string | undefined>,
+ *   executeHook?: Function,
  * }} [opts]
  * @returns {McpServer}
  */
 function createCapybaraMcpServer(opts = {}) {
   if (!assertNoChildToolsRegistered()) {
     throw new Error('MCP-02 Soft: child tools must not be registered (AC-M05)');
+  }
+  if (!assertNoExcludedToolsRegistered()) {
+    throw new Error('MCP-03 Soft: 51/52 / browser mint must not be registered (AC-M04)');
   }
 
   const server = new McpServer({
@@ -69,6 +83,75 @@ function createCapybaraMcpServer(opts = {}) {
   const req = opts.req;
   const runtime = opts.runtime;
 
+  /**
+   * @param {unknown} args
+   * @returns {string | undefined}
+   */
+  function voidClaimedRole(args) {
+    const claimed =
+      args && typeof args.clientClaimedRole === 'string'
+        ? args.clientClaimedRole
+        : args && typeof args.role === 'string'
+          ? args.role
+          : undefined;
+    void claimed;
+    return claimed;
+  }
+
+  /**
+   * @param {{
+   *   capabilityId: string,
+   *   args: Record<string, unknown> | undefined,
+   *   claimed: string | undefined,
+   * }} gateInput
+   */
+  async function runGate(gateInput) {
+    if (!req || !runtime) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              ok: false,
+              error: 'EMCP_GATE_RUNTIME',
+              message: 'MCP tool gate requires host runtime Soft',
+            }),
+          },
+        ],
+      };
+    }
+    try {
+      const gated = await authorizeMcpToolCall({
+        req,
+        runtime,
+        capabilityId: gateInput.capabilityId,
+        familyId:
+          gateInput.args && typeof gateInput.args.familyId === 'string'
+            ? gateInput.args.familyId
+            : undefined,
+        clientClaimedRole: gateInput.claimed,
+      });
+      return { ok: true, gated };
+    } catch (err) {
+      const mapped = mapMcpToolGateError(err);
+      return {
+        isError: true,
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              ok: false,
+              error: mapped.code,
+              status: mapped.status,
+              message: mapped.message,
+            }),
+          },
+        ],
+      };
+    }
+  }
+
   for (const tool of PARENT_ONLY_MCP_TOOLS) {
     server.registerTool(
       tool.name,
@@ -77,41 +160,56 @@ function createCapybaraMcpServer(opts = {}) {
         inputSchema: MCP_TOOL_ARGS_SHAPE,
       },
       async (args) => {
-        // AC-M08: void chat/client role claims (never trust Skill text)
-        const claimed =
-          args && typeof args.clientClaimedRole === 'string'
-            ? args.clientClaimedRole
-            : args && typeof args.role === 'string'
-              ? args.role
-              : undefined;
-        void claimed;
+        const claimed = voidClaimedRole(args);
+        const gate = await runGate({
+          capabilityId: tool.capabilityId,
+          args,
+          claimed,
+        });
+        if (gate.isError) return gate;
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                ok: true,
+                gated: true,
+                soft: true,
+                actionInvoke: false,
+                ...gate.gated,
+              }),
+            },
+          ],
+        };
+      },
+    );
+  }
 
-        if (!req || !runtime) {
-          return {
-            isError: true,
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify({
-                  ok: false,
-                  error: 'EMCP_GATE_RUNTIME',
-                  message: 'MCP tool gate requires host runtime Soft',
-                }),
-              },
-            ],
-          };
-        }
+  for (const tool of FAMILY_MCP_TOOLS) {
+    server.registerTool(
+      tool.name,
+      {
+        description: tool.description,
+        inputSchema: tool.inputSchema,
+      },
+      async (args) => {
+        const claimed = voidClaimedRole(args);
+        const gate = await runGate({
+          capabilityId: tool.capabilityId,
+          args,
+          claimed,
+        });
+        if (gate.isError) return gate;
 
         try {
-          const gated = await authorizeMcpToolCall({
-            req,
-            runtime,
-            capabilityId: tool.capabilityId,
-            familyId:
-              args && typeof args.familyId === 'string'
-                ? args.familyId
-                : undefined,
-            clientClaimedRole: claimed,
+          const invoked = await executeFamilyAction({
+            toolId: tool.name,
+            args: args || {},
+            router: opts.router || null,
+            confirmFn: opts.confirmFn,
+            isTty: opts.isTty,
+            baseEnv: opts.baseEnv,
+            executeHook: opts.executeHook,
           });
           return {
             content: [
@@ -121,14 +219,19 @@ function createCapybaraMcpServer(opts = {}) {
                   ok: true,
                   gated: true,
                   soft: true,
-                  actionInvoke: false,
-                  ...gated,
+                  actionInvoke: true,
+                  ...gate.gated,
+                  invoke: {
+                    toolId: invoked.toolId,
+                    action: invoked.action,
+                    isolatedEnv: invoked.isolatedEnv,
+                    result: invoked.result,
+                  },
                 }),
               },
             ],
           };
         } catch (err) {
-          const mapped = mapMcpToolGateError(err);
           return {
             isError: true,
             content: [
@@ -136,9 +239,11 @@ function createCapybaraMcpServer(opts = {}) {
                 type: 'text',
                 text: JSON.stringify({
                   ok: false,
-                  error: mapped.code,
-                  status: mapped.status,
-                  message: mapped.message,
+                  error: err && err.code ? err.code : 'EMCP_INVOKE',
+                  message:
+                    err && err.message
+                      ? String(err.message)
+                      : 'MCP family action invoke failed',
                 }),
               },
             ],
