@@ -1,7 +1,7 @@
 # 03 — Runtime, env, packaging, verify
 
 **Package:** [`00-overview.md`](./00-overview.md)  
-**UTC:** `2026-11-27T17:23:20Z`  
+**UTC:** `2026-11-27T20:17:28Z` (PGDUR-06 Soft Present Soft≠Live) · prior cast matrix `2026-11-27T20:01:22Z`  
 **Interview locks:** Q7 A · Q8 A · Q9 A · Q11 A · Q12 A
 
 ## Runtime topology (Q9 A)
@@ -53,6 +53,22 @@ No silent RAM-only SoT when durable mode expected.
 | Operator path | [`../../../supabase/README.md`](../../../supabase/README.md) Soft≠Live apply notes |
 | Env | Reuse `SUPABASE_URL` + secret key classes above |
 
+## Cast write matrix (PGDUR-06 Soft≠Live)
+
+Family-write ops on production host must hit the **same** durable stores from `resolveMembershipInviteStores` (not ad-hoc RAM):
+
+| HTTP / flow | Store write | Postgres table(s) |
+|-------------|-------------|-------------------|
+| `POST /auth/bootstrap` | `membershipStore` createFamily / addMembership / setPoolIdentity / markBootstrapped | `families` · `memberships` |
+| `POST /auth/invite` | `inviteStore` createInvite | `invites` |
+| `POST /auth/verify` → bind accept | `bindInviteeAndAccept` → membership + invite accept | `memberships` · `invites` |
+| `POST /auth/verify` proof | `verifiedProofStore.addVerifiedProof` | `verified_address_proofs` |
+
+Compose kinds (non-secret): `postgres` (config + `createClient`) · `fail-closed` (missing/invalid) · `memory-inject` (unit/test inject only).  
+Host reports `store_kind=…` on startup / `describeAuthEnvPresence` (PGDUR-06 Soft Present Soft≠Live).  
+`CAPY_POOL_ADDRESS` / `PARENT_ADDRESS` = address defaults only — **not** durability switches.  
+HTTP `ok` without row in watched project ⇒ wrong SoT/process (Soft≠Live) — checklist story [`STORY-SCR-CAPY-PGDUR-06-durable-cast-invite-path-assert`](../../tasks/backlog-stories/capybara-postgres-family-identity-and-journals/STORY-SCR-CAPY-PGDUR-06-durable-cast-invite-path-assert.md).
+
 ## Operator evidence (AC-P09)
 
-Redeploy + journal primary read evidence = PGDUR-05. Soft≠Live: migrations/docs alone ≠ Live Pass / REQ-12 Done (AC-M05 · AC-P08).
+Redeploy + journal primary read evidence = PGDUR-05 Residual. Soft≠Live: migrations/docs / Soft unit alone ≠ Live Pass / REQ-12 Done (AC-M05 · AC-P08). Cast Soft assert = PGDUR-06 Soft Present · **Live cast Residual OK** ≠ invent Live Pass.

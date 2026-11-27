@@ -7,7 +7,8 @@
 **Harness:** [`../../tests/unit/inv07-family-cast-completion.test.js`](../../tests/unit/inv07-family-cast-completion.test.js)
 
 > **Lock:** Reuse Present INV-04/05 only — **no** parallel invite invent · **no** new invite routes.  
-> **Honesty:** Unit/harness **≠** invent live MetaMask Pass · **≠** family onboarding Done. **G8 Residual** mid-redeploy (in-memory membership/invite wipe) — [`MEMBERSHIP-INVITE-REDEPLOY-RESIDUAL.md`](MEMBERSHIP-INVITE-REDEPLOY-RESIDUAL.md).
+> **Honesty:** Unit/harness **≠** invent live MetaMask Pass · **≠** family onboarding Done. **G8 Residual** mid-redeploy (in-memory membership/invite wipe) — [`MEMBERSHIP-INVITE-REDEPLOY-RESIDUAL.md`](MEMBERSHIP-INVITE-REDEPLOY-RESIDUAL.md).  
+> **PGDUR-06 Soft≠Live:** host `store_kind` must be `postgres` for durable cast · ok bootstrap ⇒ `families` · invite ⇒ `invites` · verify-bind ⇒ `memberships`. **Live cast Residual OK** — Soft ≠ invent Pass / REQ-12 Done.
 
 ---
 
