@@ -5,17 +5,23 @@ const { handleHostRequest } = require('./health');
 const { createAuthRuntime, tryHandleAuthRequest } = require('./authHttp');
 const { tryHandleInviteRequest } = require('./inviteHttp');
 const { tryHandleCapabilityProbe } = require('./capabilityProbe');
+const { tryHandleConnectorLaunchRequest } = require('./connectorLaunch');
 const { createSignRuntime, tryHandleSignRequest } = require('./signHttp');
 
 /**
  * Create thin Node `http` host server (no Express).
  *
  * Composes GET /health + `/auth/*` + `POST /auth/invite` (INV-04) +
- * `/v1/capabilities/profile.self` + `/sign/*` (WPROOF-01).
+ * `/v1/capabilities/profile.self` + `GET /connector/launch` (WPROOF-10).
+ *
+ * Experimental `/sign/*` (WPROOF-01…09 residual) is **retired** from default
+ * compose (option A). Opt-in only via `enableSignHttp: true` for historical
+ * unit harness Soft residual — Soft≠Live · not Live product path.
  *
  * @param {{
  *   env?: NodeJS.ProcessEnv | Record<string, string | undefined>,
  *   authRuntime?: ReturnType<typeof createAuthRuntime>,
+ *   enableSignHttp?: boolean,
  *   signRuntime?: ReturnType<typeof createSignRuntime>,
  *   signTokenStore?: import('./signTokenStore').SignTokenStore,
  *   challengeStore?: import('../packages/core/src/auth/ChallengeStore').ChallengeStore,
@@ -40,21 +46,25 @@ function createHostServer(options = {}) {
       nowMs: options.nowMs,
     });
 
-  const signRuntime =
-    options.signRuntime ||
-    createSignRuntime({
-      signTokenStore: options.signTokenStore,
-      challenges: runtime.challenges,
-      nowMs: options.nowMs,
-      env,
-    });
-  // Keep challenge store shared for HTML bootstrap.
-  if (!signRuntime.challenges) {
-    signRuntime.challenges = runtime.challenges;
-  }
-  // WPROOF-02: verify-success → write result=ok via shared SignTokenStore
-  if (!runtime.signTokens) {
-    runtime.signTokens = signRuntime.signTokens;
+  const enableSignHttp = options.enableSignHttp === true;
+  let signRuntime = null;
+  if (enableSignHttp) {
+    signRuntime =
+      options.signRuntime ||
+      createSignRuntime({
+        signTokenStore: options.signTokenStore,
+        challenges: runtime.challenges,
+        nowMs: options.nowMs,
+        env,
+      });
+    if (!signRuntime.challenges) {
+      signRuntime.challenges = runtime.challenges;
+    }
+    if (!runtime.signTokens) {
+      runtime.signTokens = signRuntime.signTokens;
+    }
+  } else if (options.signTokenStore) {
+    runtime.signTokens = options.signTokenStore;
   }
 
   return http.createServer((req, res) => {
@@ -65,7 +75,15 @@ function createHostServer(options = {}) {
       })
       .then((handled) => {
         if (handled) return true;
-        return tryHandleSignRequest(req, res, signRuntime);
+        if (tryHandleConnectorLaunchRequest(req, res, env)) return true;
+        return false;
+      })
+      .then((handled) => {
+        if (handled) return true;
+        if (enableSignHttp && signRuntime) {
+          return tryHandleSignRequest(req, res, signRuntime);
+        }
+        return false;
       })
       .then((handled) => {
         if (handled) return true;
