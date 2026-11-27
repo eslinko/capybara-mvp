@@ -5,23 +5,26 @@
 **Arch:** [`../architecture/08-identity-http-edge-on-host/03-env-verify-coexistence-residual.md`](../architecture/08-identity-http-edge-on-host/03-env-verify-coexistence-residual.md)  
 **Code:** [`../../host/authHttp.js`](../../host/authHttp.js) `createAuthRuntime` · InviteStore · MembershipStore
 
-> **Disposition (EDGE-08 P3):** Durability of membership + invite across Railway redeploy = **Absent / Residual continued**.  
-> Product target: [`../requirements/12-postgres-family-identity-and-journals.md`](../requirements/12-postgres-family-identity-and-journals.md) (REQ-12 Draft).  
-> Do **not** invent Phase 3 DDL / durable store Done. Do **not** invent live multi-step onboarding Pass across redeploys.  
-> `npm test` / docs alone ≠ durability Done (AC-G8-04).
+> **Disposition (EDGE-08 · PGDUR-05 2026-11-27T18:51:59Z):** Live durability across Railway redeploy = **Absent / Residual continued**.  
+> Soft product (PGDUR-02…04): Postgres membership/invite/proof/journal writers **Present** Soft≠Live — **≠** invent Live Pass.  
+> Product target: [`../requirements/12-postgres-family-identity-and-journals.md`](../requirements/12-postgres-family-identity-and-journals.md) (REQ-12 — Accept only after operator live Pass).  
+> Do **not** invent live multi-step onboarding Pass across redeploys.  
+> `npm test` / docs alone ≠ durability Done (AC-G8-04 · AC-P08).  
+> PGDUR-05 evidence: [`evidence/pgdur-live-redeploy-journal-residual.md`](evidence/pgdur-live-redeploy-journal-residual.md) · checklist [`PGDUR-LIVE-REDEPLOY-OPERATOR-CHECKLIST.md`](PGDUR-LIVE-REDEPLOY-OPERATOR-CHECKLIST.md).
 
 ---
 
 ## 1. As-is (claims from code)
 
-| Store | Host mount | Survive redeploy? |
-|-------|------------|-------------------|
-| `MembershipStore` | `createAuthRuntime` default `new MembershipStore()` | **No** — process memory |
-| `InviteStore` | same runtime (INV-04) | **No** — process memory |
-| `BearerSessionStore` | same runtime | **No** — process / TTL ephemeral (allowed) |
-| `SignTokenStore` | Sign host path (`signTokenStore.js`) | **No** — in-memory + TTL (allowed) |
+| Store | Host mount | Soft durable? | Live redeploy Pass? |
+|-------|------------|---------------|---------------------|
+| Membership / Invite | `createAuthRuntime` → `PostgresMembershipStore` / `PostgresInviteStore` when supabase-js service client Present (PGDUR-02); else fail-closed / memory path | Soft **Present** when client Present | **Absent** this wave — Residual |
+| Verified AddressProof | `PostgresVerifiedAddressProofStore` after successful verify (PGDUR-03) | Soft **Present** when client Present | **Absent** this wave — Residual |
+| Journals | `PostgresJournalStore` via writer `journalStore` inject (PGDUR-04) | Soft **Present** (inject) | Live primary read after redeploy **Absent** — Residual |
+| `BearerSessionStore` | same runtime | N/A (ephemeral allowed) | ephemeral OK |
+| `SignTokenStore` | Sign host path (`signTokenStore.js`) | N/A (TTL ephemeral allowed) | ephemeral OK |
 
-After restart: family memberships wiped → re-bootstrap required; open invites wiped → re-createInvite; Bearer/Sign tokens invalid.
+**Live honesty:** Soft Postgres wiring ≠ invent live multi-step Pass across Railway redeploy until evidence labeled Pass.
 
 ---
 
@@ -73,4 +76,7 @@ While durability Absent:
 |-----|------|
 | [`IDENTITY-HTTP-EDGE-MANUAL.md`](IDENTITY-HTTP-EDGE-MANUAL.md) §4 | Redeploy residual |
 | [`FAMILY-ONBOARDING-OPERATOR-SCENARIO.md`](FAMILY-ONBOARDING-OPERATOR-SCENARIO.md) | G8 warn |
+| [`PGDUR-LIVE-REDEPLOY-OPERATOR-CHECKLIST.md`](PGDUR-LIVE-REDEPLOY-OPERATOR-CHECKLIST.md) | PGDUR-05 operator sequence |
+| [`evidence/pgdur-live-redeploy-journal-residual.md`](evidence/pgdur-live-redeploy-journal-residual.md) | PGDUR-05 Residual (≠ Pass) |
+| [`PGDUR-SOFT-NEQ-LIVE.md`](PGDUR-SOFT-NEQ-LIVE.md) | Soft≠Live / AC-P08 |
 | Gap G8 | [`../analysis/gap-family-onboarding-http-invite-sign-2026-11-25.md`](../analysis/gap-family-onboarding-http-invite-sign-2026-11-25.md) |
