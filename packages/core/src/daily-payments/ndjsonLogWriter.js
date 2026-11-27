@@ -1,5 +1,6 @@
 'use strict';
 
+const crypto = require('crypto');
 const fs = require('fs/promises');
 const {
   DEFAULT_LOG_DIR,
@@ -7,6 +8,7 @@ const {
   readExistingDayDates,
   resolveLogDirForMode,
 } = require('./ndjsonLogReader');
+const { assertJournalMode } = require('../journals/journalMode');
 
 /**
  * @param {string} logDir
@@ -150,18 +152,49 @@ async function appendTypedLedgerEntry(params) {
 /**
  * Append one or more typed ledger rows in a single durable `appendFile`
  * (atomic pair: activity_validated + payout cannot half-land).
+ * PGDUR-04: when `journalStore` Present → Postgres/memory **primary**;
+ * NDJSON file write skipped (archive residual; not sole SoT). Soft≠Live.
  * @param {{
  *   wallet: string,
  *   entries: object[],
  *   logDir?: string,
  *   mode?: 'mock'|'gfl_reality',
+ *   journalStore?: { appendActivity: Function },
  * }} params
  * @returns {Promise<string>}
  */
 async function appendTypedLedgerEntries(params) {
-  const { wallet, entries, logDir = DEFAULT_LOG_DIR, mode = 'gfl_reality' } = params;
+  const {
+    wallet,
+    entries,
+    logDir = DEFAULT_LOG_DIR,
+    mode = 'gfl_reality',
+    journalStore = null,
+  } = params;
   if (!Array.isArray(entries) || entries.length === 0) {
     throw new Error('appendTypedLedgerEntries: entries must be a non-empty array');
+  }
+
+  if (
+    journalStore &&
+    typeof journalStore.appendActivity === 'function'
+  ) {
+    const journalMode = assertJournalMode(mode);
+    for (const entry of entries) {
+      const plain = JSON.parse(serializeTypedLedgerEntry(entry));
+      const id =
+        (typeof plain.submission_id === 'string' && plain.submission_id) ||
+        (typeof plain.event_id === 'string' && plain.event_id) ||
+        `act-${crypto.randomBytes(8).toString('hex')}`;
+      await Promise.resolve(
+        journalStore.appendActivity({
+          id: `${id}:${plain.type || 'entry'}`,
+          mode: journalMode,
+          payload: plain,
+        }),
+      );
+    }
+    return `postgres:activity_journal_entries:${wallet}:${entries.length}`;
   }
 
   const targetLogDir = resolveLogDirForMode(logDir, mode);

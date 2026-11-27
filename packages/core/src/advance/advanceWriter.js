@@ -51,8 +51,12 @@ function amountToIntegerString(amount) {
  *   system?: string,
  *   subject?: string,
  *   violations?: Array<{ code: string, message: string }>,
+ *   journalStore?: {
+ *     appendAdvance: Function,
+ *     listAdvancePayloads?: Function,
+ *   },
  * }} params
- * @returns {Promise<{ filePath: string, event: Record<string, unknown> }>}
+ * @returns {Promise<{ filePath: string, event: Record<string, unknown>, backend?: string }>}
  */
 async function appendAdvanceEvent(params) {
   const type = String(params?.type ?? '');
@@ -67,6 +71,79 @@ async function appendAdvanceEvent(params) {
   const advanceId = String(params?.advanceId ?? '').trim();
   if (!advanceId) {
     throw new Error('advance_id is required');
+  }
+
+  const journalStore = params.journalStore;
+  if (journalStore && typeof journalStore.appendAdvance === 'function') {
+    const { assertJournalMode } = require('../journals/journalMode');
+    const journalMode = assertJournalMode(mode);
+    let prior = [];
+    if (typeof journalStore.listAdvancePayloads === 'function') {
+      prior = await Promise.resolve(journalStore.listAdvancePayloads());
+    }
+    const remainderBefore = projectAdvanceRemainder(prior, advanceId);
+    const event = {
+      schema_version: ADVANCE_SCHEMA_VERSION,
+      event_id: params.eventId ?? crypto.randomUUID(),
+      advance_id: advanceId,
+      child: String(params.child).trim().toLowerCase(),
+      scope: {
+        mode: scopeMode,
+        chainId: String(params.scope.chainId).trim().toLowerCase(),
+        token: String(params.scope.token).trim().toLowerCase(),
+        pool: String(params.scope.pool).trim().toLowerCase(),
+      },
+      timestamps: {
+        recorded_at: params.recordedAt ?? new Date().toISOString(),
+      },
+      type,
+      amount_unit: 'token_raw',
+      remainder_before: remainderBefore.toString(),
+      remainder_after: remainderBefore.toString(),
+    };
+    if (type === 'issue' && params.amount == null) {
+      throw new Error('issue amount is required');
+    }
+    if (params.amount != null) {
+      event.amounts = {
+        amount: amountToIntegerString(params.amount),
+        amount_unit: 'token_raw',
+      };
+    }
+    if (params.comment != null) {
+      event.comment = params.comment;
+    }
+    if (params.operationId != null) {
+      event.operation_id = params.operationId;
+    }
+    if (params.txHash != null) {
+      event.tx_hash = String(params.txHash);
+    }
+    if (params.system != null) {
+      event.system = params.system;
+    }
+    if (params.subject != null) {
+      event.subject = params.subject;
+    }
+    if (Array.isArray(params.violations) && params.violations.length > 0) {
+      event.violations = params.violations;
+    }
+    event.remainder_after = projectAdvanceRemainder(
+      [...prior, event],
+      advanceId,
+    ).toString();
+    await Promise.resolve(
+      journalStore.appendAdvance({
+        id: String(event.event_id),
+        mode: journalMode,
+        payload: event,
+      }),
+    );
+    return {
+      filePath: `postgres:advance_journal_entries/${event.event_id}`,
+      event,
+      backend: 'postgres',
+    };
   }
 
   const filePath = getChildAdvancePath({

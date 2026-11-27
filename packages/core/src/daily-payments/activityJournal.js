@@ -198,6 +198,7 @@ async function countCommittedJournalLines(params) {
  *   transferFn?: (() => Promise<{ txHash?: string|null, mock?: boolean }|void>)|null,
  *   logDir?: string,
  *   mode?: 'mock'|'gfl_reality',
+ *   journalStore?: { appendActivity: Function },
  * }} params
  * @returns {Promise<{
  *   committed: number,
@@ -215,6 +216,7 @@ async function stageAndCommitActivityJournal(params) {
     transferFn = null,
     logDir = DEFAULT_LOG_DIR,
     mode = 'gfl_reality',
+    journalStore = null,
   } = params;
 
   const activityEntry = buildActivityValidatedEntry({
@@ -268,6 +270,7 @@ async function stageAndCommitActivityJournal(params) {
       entries: staged,
       logDir,
       mode,
+      journalStore,
     });
   } catch (error) {
     return {
