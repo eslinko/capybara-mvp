@@ -1,5 +1,8 @@
 'use strict';
 
+const { MembershipStore } = require('../../packages/core/src/membership');
+const { InviteStore } = require('../../packages/core/src/invite');
+
 const http = require('http');
 const { expect } = require('chai');
 
@@ -21,7 +24,7 @@ const FIXTURE_ENV = {
 describe('host / live Auth port wiring (SBPORT-02)', () => {
   describe('selection rule (t01/AC-S01)', () => {
     it('config Present → live port (not silent memory)', () => {
-      const runtime = createAuthRuntime(FIXTURE_ENV);
+      const runtime = createAuthRuntime(FIXTURE_ENV, { membershipStore: new MembershipStore(), inviteStore: new InviteStore() });
       expect(runtime.configError).to.equal(null);
       expect(runtime.config).to.be.an('object');
       expect(runtime.authPort.kind).to.equal('live-supabase-js');
@@ -30,13 +33,17 @@ describe('host / live Auth port wiring (SBPORT-02)', () => {
 
     it('opts.authPort inject wins (unit memory double)', () => {
       const mem = createMemorySupabaseAuthDouble();
-      const runtime = createAuthRuntime(FIXTURE_ENV, { authPort: mem });
+      const runtime = createAuthRuntime(FIXTURE_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(), authPort: mem });
       expect(runtime.authPort).to.equal(mem);
       expect(runtime.authPort.kind).to.equal('memory-double');
     });
 
     it('createClient inject builds live factory when package Absent', async () => {
       const runtime = createAuthRuntime(FIXTURE_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(),
         createClient: () => ({
           auth: {
             admin: {
@@ -61,7 +68,7 @@ describe('host / live Auth port wiring (SBPORT-02)', () => {
 
   describe('fail-closed (t02/AC-S03)', () => {
     it('missing env → configError + requireRuntimeConfig throws; no memory default', () => {
-      const runtime = createAuthRuntime({});
+      const runtime = createAuthRuntime({}, { membershipStore: new MembershipStore(), inviteStore: new InviteStore() });
       expect(runtime.config).to.equal(null);
       expect(runtime.configError).to.be.ok;
       expect(runtime.configError.code).to.equal('EAUTH_ENV_MISSING');
@@ -95,7 +102,7 @@ describe('host / live Auth port wiring (SBPORT-02)', () => {
     });
 
     it('sanitizePublicAuthMessage redacts config secrets', () => {
-      const runtime = createAuthRuntime(FIXTURE_ENV);
+      const runtime = createAuthRuntime(FIXTURE_ENV, { membershipStore: new MembershipStore(), inviteStore: new InviteStore() });
       const dirty = `fail ${runtime.config.supabaseKey} at ${runtime.config.supabaseUrl} with ${runtime.config.bearerSecret}`;
       const clean = sanitizePublicAuthMessage(dirty, runtime.config);
       expect(clean).to.not.include(FIXTURE_ENV.SUPABASE_SECRET_KEY);
@@ -105,6 +112,8 @@ describe('host / live Auth port wiring (SBPORT-02)', () => {
 
     it('auth error JSON does not echo secret key values', (done) => {
       const runtime = createAuthRuntime(FIXTURE_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(),
         createClient: () => ({
           auth: {
             admin: {

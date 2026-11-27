@@ -1,5 +1,8 @@
 'use strict';
 
+const { MembershipStore } = require('../../packages/core/src/membership');
+const { InviteStore } = require('../../packages/core/src/invite');
+
 /**
  * EDGE-12 / AC-I09 — Connector Origin → SIWE domain/URI.
  * Soft≠Live: unit green ≠ invent Live Connector Pass.
@@ -112,6 +115,8 @@ describe('EDGE-12 Connector Origin → SIWE domain/URI', () => {
   describe('challenge message domain/URI (t02 / AC-EDGE-12-01/02)', () => {
     it('Connector Origin → domain=host · URI=absolute origin', async () => {
       const runtime = createAuthRuntime(FIXTURE_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(),
         nowMs: NOW,
         authPort: createMemorySupabaseAuthDouble(),
       });
@@ -145,6 +150,8 @@ describe('EDGE-12 Connector Origin → SIWE domain/URI', () => {
         CAPY_CONNECTOR_CORS_ORIGINS: HTTPS_CONNECTOR,
       };
       const runtime = createAuthRuntime(env, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(),
         nowMs: NOW,
         authPort: createMemorySupabaseAuthDouble(),
       });
@@ -174,6 +181,8 @@ describe('EDGE-12 Connector Origin → SIWE domain/URI', () => {
   describe('refuse capybara.local defaults (t03 / AC-EDGE-12-03)', () => {
     it('Connector flow message excludes forbidden defaults', async () => {
       const runtime = createAuthRuntime(FIXTURE_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(),
         nowMs: NOW,
         authPort: createMemorySupabaseAuthDouble(),
       });
@@ -200,6 +209,8 @@ describe('EDGE-12 Connector Origin → SIWE domain/URI', () => {
 
     it('without Connector Origin keeps legacy defaults (non-Connector client)', async () => {
       const runtime = createAuthRuntime(FIXTURE_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(),
         nowMs: NOW,
         authPort: createMemorySupabaseAuthDouble(),
       });
@@ -227,6 +238,8 @@ describe('EDGE-12 Connector Origin → SIWE domain/URI', () => {
   describe('exact message + Soft≠Live (t04 / AC-EDGE-12-04/05)', () => {
     it('verify signs exact UTF-8 message · Soft≠Live honesty', async () => {
       const runtime = createAuthRuntime(FIXTURE_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(),
         nowMs: NOW,
         authPort: createMemorySupabaseAuthDouble(),
       });

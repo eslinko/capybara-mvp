@@ -70,40 +70,40 @@ function seedFamilyWithOpenInvite(inviteeAddress, role = 'child') {
 
 describe('invite / bind invitee (INV-02)', () => {
   describe('findOpenInviteByTo (t01)', () => {
-    it('finds open Invite by to address', () => {
+    it('finds open Invite by to address', async () => {
       const invitee = '0xInviteeLookup0000000000000000000000001';
       const { inviteStore, invite } = seedFamilyWithOpenInvite(invitee);
-      const found = findOpenInviteByTo(inviteStore, invitee);
+      const found = await findOpenInviteByTo(inviteStore, invitee);
       expect(found).to.not.equal(null);
       expect(found.id).to.equal(invite.id);
       expect(found.to).to.equal(invitee.toLowerCase());
       expect(found.status).to.equal('open');
     });
 
-    it('returns null for wrong address; familyId disambiguates', () => {
+    it('returns null for wrong address; familyId disambiguates', async () => {
       const invitee = '0xInviteeLookup0000000000000000000000002';
       const { inviteStore } = seedFamilyWithOpenInvite(invitee);
-      expect(findOpenInviteByTo(inviteStore, '0xDeadBeef000000000000000000000000000001')).to.equal(
+      expect(await findOpenInviteByTo(inviteStore, '0xDeadBeef000000000000000000000000000001')).to.equal(
         null,
       );
-      expect(findOpenInviteByTo(inviteStore, invitee, FAMILY_ID).familyId).to.equal(
-        FAMILY_ID,
-      );
-      expect(findOpenInviteByTo(inviteStore, invitee, 'other-fam')).to.equal(null);
+      expect(
+        (await findOpenInviteByTo(inviteStore, invitee, FAMILY_ID)).familyId,
+      ).to.equal(FAMILY_ID);
+      expect(await findOpenInviteByTo(inviteStore, invitee, 'other-fam')).to.equal(null);
     });
   });
 
   describe('pre-accept deny family caps (t04) — AC-M06', () => {
-    it('before accept, invitee cannot pass family capability path', () => {
+    it('before accept, invitee cannot pass family capability path', async () => {
       const invitee = '0xInviteePreAccept0000000000000000000001';
       const { membershipStore, inviteStore } = seedFamilyWithOpenInvite(invitee);
 
-      expect(findOpenInviteByTo(inviteStore, invitee)).to.not.equal(null);
+      expect(await findOpenInviteByTo(inviteStore, invitee)).to.not.equal(null);
       expect(
         membershipStore.listMembershipsByAddress(invitee).filter((m) => m.familyId === FAMILY_ID),
       ).to.have.length(0);
 
-      const denied = assertInviteeNoFamilyCaps({
+      const denied = await assertInviteeNoFamilyCaps({
         membershipStore,
         toAddress: invitee,
         familyId: FAMILY_ID,
@@ -114,15 +114,19 @@ describe('invite / bind invitee (INV-02)', () => {
 
       // Also: no DualAuth membership → DualAuthGate deny
       const sessions = new BearerSessionStore();
-      expect(() =>
-        dualAuthGate({
+            let _err;
+      try {
+        await dualAuthGate({
           bearer: null,
           sessionStore: sessions,
           config: FIXTURE_CONFIG,
           membershipStore,
           familyId: FAMILY_ID,
-        }),
-      ).to.throw(/DualAuthGate deny/);
+        });
+      } catch (e) { _err = e; }
+      expect(_err).to.exist;
+      expect(String(_err && _err.message || _err)).to.match(/DualAuthGate deny/);
+
     });
   });
 
@@ -156,7 +160,7 @@ describe('invite / bind invitee (INV-02)', () => {
       expect(result.invite.status).to.equal('accepted');
       expect(result.actor.userId).to.equal('supabase-uid-invitee');
       expect(result.actor.role).to.equal('child');
-      expect(findOpenInviteByTo(inviteStore, wallet.address)).to.equal(null);
+      expect(await findOpenInviteByTo(inviteStore, wallet.address)).to.equal(null);
 
       const actor = buildActorContext(result.membership);
       expect(actor.userId).to.equal('supabase-uid-invitee');
@@ -244,7 +248,7 @@ describe('invite / bind invitee (INV-02)', () => {
       );
 
       let ran = false;
-      runWithDualAuthThenRoleGate(
+      await runWithDualAuthThenRoleGate(
         {
           bearer: session.token,
           sessionStore: sessions,

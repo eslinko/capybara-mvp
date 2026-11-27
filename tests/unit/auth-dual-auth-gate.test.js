@@ -54,10 +54,10 @@ function issueSessionFor(link, nowMs = 1_700_000_000_000) {
 
 describe('auth / DualAuthGate before RoleGate (AUTH-03)', () => {
   describe('resolve + bind membership.userId (t03)', () => {
-    it('binds userId onto membership found by address', () => {
+    it('binds userId onto membership found by address', async () => {
       const { store, parent } = seedFamily();
       expect(parent.userId).to.equal(undefined);
-      const linked = resolveMembershipForSession({
+      const linked = await resolveMembershipForSession({
         membershipStore: store,
         userId: 'supabase-uid-parent',
         address: parent.address,
@@ -70,10 +70,10 @@ describe('auth / DualAuthGate before RoleGate (AUTH-03)', () => {
   });
 
   describe('DualAuthGate API fail-closed (t01)', () => {
-    it('denies missing / invalid bearer (AC-A01)', () => {
+    it('denies missing / invalid bearer (AC-A01)', async () => {
       const { store } = seedFamily();
       const sessions = new BearerSessionStore();
-      const missing = decideDualAuth({
+      const missing = await decideDualAuth({
         bearer: null,
         sessionStore: sessions,
         config: FIXTURE_CONFIG,
@@ -82,21 +82,24 @@ describe('auth / DualAuthGate before RoleGate (AUTH-03)', () => {
       expect(missing.outcome).to.equal('deny');
       expect(missing.reason).to.match(/MISSING|INVALID/i);
 
-      expect(() =>
-        dualAuthGate({
+            let _err;
+      try {
+        await dualAuthGate({
           bearer: 'not-a-token',
           sessionStore: sessions,
           config: FIXTURE_CONFIG,
           membershipStore: store,
-        }),
-      )
-        .to.throw(/DualAuthGate deny/)
-        .and.satisfy((e) => e.code === 'EAUTH_DUAL_DENY');
+        });
+      } catch (e) { _err = e; }
+      expect(_err).to.exist;
+      expect(String(_err && _err.message || _err)).to.match(/DualAuthGate deny/);
+      expect(_err).to.satisfy((e) => e.code === 'EAUTH_DUAL_DENY');
+
     });
   });
 
   describe('ActorContext after allow (t04) + harness (t05)', () => {
-    it('allow path builds ActorContext with userId; role from membership only (AC-A03)', () => {
+    it('allow path builds ActorContext with userId; role from membership only (AC-A03)', async () => {
       const { store, parent, family } = seedFamily();
       const { sessions, session, nowMs } = issueSessionFor({
         userId: 'supabase-uid-parent',
@@ -104,7 +107,7 @@ describe('auth / DualAuthGate before RoleGate (AUTH-03)', () => {
       });
 
       let sideEffect = 0;
-      const result = runWithDualAuthThenRoleGate(
+      const result = await runWithDualAuthThenRoleGate(
         {
           bearer: session.token,
           sessionStore: sessions,
@@ -133,7 +136,7 @@ describe('auth / DualAuthGate before RoleGate (AUTH-03)', () => {
       expect(result).to.equal('ok-pool');
       expect(sideEffect).to.equal(1);
 
-      const allowed = dualAuthGate({
+      const allowed = await dualAuthGate({
         bearer: session.token,
         sessionStore: sessions,
         config: FIXTURE_CONFIG,
@@ -147,12 +150,13 @@ describe('auth / DualAuthGate before RoleGate (AUTH-03)', () => {
       expect(allowed.userId).to.equal('supabase-uid-parent');
     });
 
-    it('denies gated capability without dual-auth (AC-A01 harness)', () => {
+    it('denies gated capability without dual-auth (AC-A01 harness)', async () => {
       const { store, family } = seedFamily();
       const sessions = new BearerSessionStore();
       let sideEffect = 0;
-      expect(() =>
-        runWithDualAuthThenRoleGate(
+      let _err;
+      try {
+        await runWithDualAuthThenRoleGate(
           {
             bearer: '',
             sessionStore: sessions,
@@ -167,21 +171,25 @@ describe('auth / DualAuthGate before RoleGate (AUTH-03)', () => {
             sideEffect += 1;
             return 'should-not-run';
           },
-        ),
-      )
-        .to.throw(/DualAuthGate deny/)
-        .and.satisfy((e) => e.code === 'EAUTH_DUAL_DENY');
+        );
+      } catch (e) {
+        _err = e;
+      }
+      expect(_err).to.exist;
+      expect(String(_err && _err.message || _err)).to.match(/DualAuthGate deny/);
+      expect(_err).to.satisfy((e) => e.code === 'EAUTH_DUAL_DENY');
       expect(sideEffect).to.equal(0);
     });
 
-    it('child membership cannot use parent-only capability after dual-auth allow', () => {
+    it('child membership cannot use parent-only capability after dual-auth allow', async () => {
       const { store, child, family } = seedFamily();
       const { sessions, session, nowMs } = issueSessionFor({
         userId: 'user-child-1',
         address: child.address,
       });
-      expect(() =>
-        runWithDualAuthThenRoleGate(
+      let _err;
+      try {
+        await runWithDualAuthThenRoleGate(
           {
             bearer: session.token,
             sessionStore: sessions,
@@ -195,13 +203,17 @@ describe('auth / DualAuthGate before RoleGate (AUTH-03)', () => {
             familyMemberships: family,
           },
           () => 'nope',
-        ),
-      ).to.throw(/RoleGate deny/);
+        );
+      } catch (e) {
+        _err = e;
+      }
+      expect(_err).to.exist;
+      expect(String(_err && _err.message || _err)).to.match(/RoleGate deny/);
     });
   });
 
   describe('RoleGate remains separate (t02) + CLI residual note (t06)', () => {
-    it('does not put dual-auth into capabilities.js', () => {
+    it('does not put dual-auth into capabilities.js', async () => {
       const capsPath = path.join(
         __dirname,
         '../../packages/core/src/roleGate/capabilities.js',
@@ -210,7 +222,7 @@ describe('auth / DualAuthGate before RoleGate (AUTH-03)', () => {
       expect(text).to.not.match(/DualAuth|bearer|supabase/i);
     });
 
-    it('documents CLI residual on DualAuthGate module', () => {
+    it('documents CLI residual on DualAuthGate module', async () => {
       const gatePath = path.join(
         __dirname,
         '../../packages/core/src/auth/dualAuthGate.js',

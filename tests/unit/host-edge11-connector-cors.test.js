@@ -1,5 +1,8 @@
 'use strict';
 
+const { MembershipStore } = require('../../packages/core/src/membership');
+const { InviteStore } = require('../../packages/core/src/invite');
+
 /**
  * EDGE-11 / AC-I08 — Connector CORS on `/auth/challenge|verify`.
  * Soft≠Live: unit green ≠ invent Live Connector Pass.
@@ -137,6 +140,8 @@ describe('EDGE-11 Connector CORS on /auth/challenge|verify', () => {
   describe('ACAO echo on challenge/verify (t01 / AC-EDGE-11-01)', () => {
     it('allowed Origin gets ACAO echo on POST challenge · not *', async () => {
       const runtime = createAuthRuntime(FIXTURE_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(),
         nowMs: NOW,
         authPort: createMemorySupabaseAuthDouble(),
       });
@@ -170,6 +175,8 @@ describe('EDGE-11 Connector CORS on /auth/challenge|verify', () => {
         CAPY_CONNECTOR_CORS_ORIGINS: HTTPS_CONNECTOR,
       };
       const runtime = createAuthRuntime(env, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(),
         nowMs: NOW,
         authPort: createMemorySupabaseAuthDouble(),
       });
@@ -210,6 +217,8 @@ describe('EDGE-11 Connector CORS on /auth/challenge|verify', () => {
   describe('OPTIONS preflight (t02 / AC-EDGE-11-02)', () => {
     it('OPTIONS challenge/verify → 204 with POST,OPTIONS and Content-Type,Accept', async () => {
       const runtime = createAuthRuntime(FIXTURE_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(),
         nowMs: NOW,
         authPort: createMemorySupabaseAuthDouble(),
       });
@@ -249,6 +258,8 @@ describe('EDGE-11 Connector CORS on /auth/challenge|verify', () => {
   describe('fail-closed unknown Origin (t03 / AC-EDGE-11-03)', () => {
     it('unknown Origin → no ACAO · no *', async () => {
       const runtime = createAuthRuntime(FIXTURE_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(),
         nowMs: NOW,
         authPort: createMemorySupabaseAuthDouble(),
       });
@@ -290,6 +301,8 @@ describe('EDGE-11 Connector CORS on /auth/challenge|verify', () => {
   describe('Soft≠Live + body contract (t04 / AC-EDGE-11-04/05)', () => {
     it('challenge/verify body shape unchanged · Soft≠Live honesty', async () => {
       const runtime = createAuthRuntime(FIXTURE_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(),
         nowMs: NOW,
         authPort: createMemorySupabaseAuthDouble(),
       });

@@ -1,5 +1,8 @@
 'use strict';
 
+const { MembershipStore } = require('../../packages/core/src/membership');
+const { InviteStore } = require('../../packages/core/src/invite');
+
 const http = require('http');
 const { expect } = require('chai');
 const { ethers } = require('ethers');
@@ -156,7 +159,9 @@ describe('host identity HTTP edge (EDGE-01)', () => {
   describe('challenge → verify → session → logout (t02/t03/AC-I03)', () => {
     it('full Bearer flow on same createHostServer process', (done) => {
       const nowMs = 1_700_000_000_000;
-      const runtime = createAuthRuntime(FIXTURE_ENV, { nowMs, authPort: createMemorySupabaseAuthDouble() });
+      const runtime = createAuthRuntime(FIXTURE_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(), nowMs, authPort: createMemorySupabaseAuthDouble() });
       const server = createHostServer({ authRuntime: runtime });
       const wallet = ethers.Wallet.createRandom();
 
@@ -229,7 +234,7 @@ describe('host identity HTTP edge (EDGE-01)', () => {
   describe('honesty (t05/AC-I06)', () => {
     it('documents that unit harness ≠ Phase 2 Done claim', () => {
       // Structural marker: EDGE-01 unit path exists; live DualAuth/REQ-09 not claimed.
-      const live = createAuthRuntime(FIXTURE_ENV);
+      const live = createAuthRuntime(FIXTURE_ENV, { membershipStore: new MembershipStore(), inviteStore: new InviteStore() });
       expect(live.authPort.kind).to.equal('live-supabase-js');
       expect(live.authPort.residual).to.equal(false);
     });

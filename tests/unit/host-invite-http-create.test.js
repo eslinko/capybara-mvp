@@ -110,7 +110,9 @@ function issueParentBearer(membershipStore, parent) {
 describe('host HTTP createInvite (INV-04 / G3)', () => {
   describe('runtime mount (t01)', () => {
     it('createAuthRuntime mounts InviteStore by default', () => {
-      const runtime = createAuthRuntime(FIXTURE_ENV, { nowMs: NOW });
+      const runtime = createAuthRuntime(FIXTURE_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(), nowMs: NOW });
       expect(runtime.inviteStore).to.be.ok;
       expect(runtime.inviteStore.addInvite).to.be.a('function');
     });

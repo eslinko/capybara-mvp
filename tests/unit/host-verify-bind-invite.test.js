@@ -256,7 +256,7 @@ describe('host verify bind invite (INV-05 / G4)', () => {
       ),
     ).to.have.length(0);
 
-    const denied = assertInviteeNoFamilyCaps({
+    const denied = await assertInviteeNoFamilyCaps({
       membershipStore,
       toAddress: invitee.address,
       familyId: FAMILY_ID,

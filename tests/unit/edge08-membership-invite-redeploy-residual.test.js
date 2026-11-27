@@ -2,7 +2,8 @@
 
 /**
  * EDGE-08 / G8 — membership+invite redeploy residual honesty (unit).
- * Durability Absent (in-memory) — Residual continued; no invent Phase 3 DDL Done.
+ * PGDUR-02: durable Postgres when createClient composed; else fail-closed (AC-P06).
+ * Soft≠Live: adapters/unit ≠ invent REQ-12 Done / Live Pass.
  * AC-G8-03/04: manuals Residual-label; npm/docs alone ≠ durability Done.
  */
 
@@ -17,11 +18,11 @@ const IDENTITY = path.join(ROOT, 'docs', 'manuals', 'IDENTITY-HTTP-EDGE-MANUAL.m
 const SCENARIO = path.join(ROOT, 'docs', 'manuals', 'FAMILY-ONBOARDING-OPERATOR-SCENARIO.md');
 
 describe('EDGE-08 membership+invite redeploy residual (G8)', () => {
-  it('as-is: createAuthRuntime defaults MembershipStore + InviteStore (in-memory residual)', () => {
+  it('as-is: createAuthRuntime resolves durable stores via resolveMembershipInviteStores (PGDUR-02)', () => {
     const text = fs.readFileSync(AUTH_HTTP, 'utf8');
-    expect(text).to.match(/membershipStore:\s*opts\.membershipStore\s*\|\|\s*new MembershipStore\(\)/);
-    expect(text).to.match(/inviteStore:\s*opts\.inviteStore\s*\|\|\s*new InviteStore\(\)/);
-    expect(text).to.match(/EDGE-08 residual|in-memory/i);
+    expect(text).to.match(/resolveMembershipInviteStores/);
+    expect(text).to.match(/PostgresMembershipStore|FailClosedMembershipStore/);
+    expect(text).to.match(/PGDUR-02|Soft≠Live|fail-closed/i);
   });
 
   it('AC-G8-03: residual manual labels durability Absent and forbids invent multi-step Pass', () => {
@@ -50,4 +51,3 @@ describe('EDGE-08 membership+invite redeploy residual (G8)', () => {
     expect(text).to.not.match(/AC-G8-01\/02 may Pass this wave|durability Present \(this wave\)/i);
   });
 });
-

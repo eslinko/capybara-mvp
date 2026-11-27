@@ -166,8 +166,10 @@ describe('action 51 DeployCapybaraToken', () => {
     const manager = new CapybaraActionsManager(router);
     try {
       await manager.action51Deploy();
+      expect.fail('expected deploy to stop before broadcast');
     } catch (error) {
-      expect(error.message).to.match(/compile first/i);
+      // Missing artifact → "compile first". Compiled artifact → TTY gate, still before broadcast.
+      expect(error.message).to.match(/compile first|интерактивный TTY/i);
     }
     expect(logger.lines.join('\n')).to.include(GFL_REALITY_BANNER);
   });

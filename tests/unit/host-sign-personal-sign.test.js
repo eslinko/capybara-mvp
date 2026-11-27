@@ -1,5 +1,8 @@
 'use strict';
 
+const { MembershipStore } = require('../../packages/core/src/membership');
+const { InviteStore } = require('../../packages/core/src/invite');
+
 const http = require('http');
 const { expect } = require('chai');
 const { ethers } = require('ethers');
@@ -103,7 +106,9 @@ describe('host sign page + personal_sign (WPROOF-01)', () => {
   describe('sign client UX (t02/t03/t05)', () => {
     it('signs exact message and verifies without product private keys (AC-W01/W02)', async () => {
       const wallet = ethers.Wallet.createRandom();
-      const auth = createAuthRuntime(AUTH_ENV, { nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
+      const auth = createAuthRuntime(AUTH_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(), nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
       const issued = issueChallenge(auth.challenges, wallet.address, {
         nowMs: 1_700_000_000_000,
         ttlMs: 120_000,
@@ -252,7 +257,9 @@ describe('host sign page + personal_sign (WPROOF-01)', () => {
   describe('HTTP sign page shell (t01)', () => {
     it('GET /sign/{token} returns HTML bootstrap when token+challenge pending', async () => {
       const wallet = ethers.Wallet.createRandom();
-      const auth = createAuthRuntime(AUTH_ENV, { nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
+      const auth = createAuthRuntime(AUTH_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(), nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
       const issued = issueChallenge(auth.challenges, wallet.address, {
         nowMs: 1_700_000_000_000,
         ttlMs: 120_000,

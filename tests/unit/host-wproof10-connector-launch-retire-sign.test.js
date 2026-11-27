@@ -1,5 +1,8 @@
 'use strict';
 
+const { MembershipStore } = require('../../packages/core/src/membership');
+const { InviteStore } = require('../../packages/core/src/invite');
+
 /**
  * WPROOF-10 — DOGESTONIA_CONNECTOR_URL + retire Sign POC compose.
  * Soft≠Live: unit green ≠ invent Live Connector Pass.
@@ -114,6 +117,8 @@ describe('WPROOF-10 Connector launch + Sign retire', () => {
     it('GET /connector/launch returns launchUrl; redirect=1 → 302', async () => {
       const env = { ...FIXTURE_ENV, DOGESTONIA_CONNECTOR_URL: CONNECTOR_BASE };
       const runtime = createAuthRuntime(env, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(),
         authPort: createMemorySupabaseAuthDouble(),
         nowMs: NOW,
       });
@@ -140,6 +145,8 @@ describe('WPROOF-10 Connector launch + Sign retire', () => {
       }
 
       const runtime2 = createAuthRuntime(FIXTURE_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(),
         authPort: createMemorySupabaseAuthDouble(),
         nowMs: NOW,
       });
@@ -157,6 +164,8 @@ describe('WPROOF-10 Connector launch + Sign retire', () => {
     it('default compose: /sign/mint unreachable; /auth/challenge|verify Present', async () => {
       const env = { ...FIXTURE_ENV, DOGESTONIA_CONNECTOR_URL: CONNECTOR_BASE };
       const runtime = createAuthRuntime(env, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(),
         authPort: createMemorySupabaseAuthDouble(),
         nowMs: NOW,
       });

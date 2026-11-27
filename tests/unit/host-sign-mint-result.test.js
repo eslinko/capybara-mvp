@@ -1,5 +1,8 @@
 'use strict';
 
+const { MembershipStore } = require('../../packages/core/src/membership');
+const { InviteStore } = require('../../packages/core/src/invite');
+
 const http = require('http');
 const { expect } = require('chai');
 const { ethers } = require('ethers');
@@ -90,7 +93,9 @@ describe('host signToken mint / result (WPROOF-02)', () => {
 
   describe('mint API auth + create (t01/t04)', () => {
     it('503 when CAPY_SIGN_MINT_SECRET unset; 401 wrong/missing header', async () => {
-      const auth = createAuthRuntime(AUTH_ENV, { nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
+      const auth = createAuthRuntime(AUTH_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(), nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
       const store = new SignTokenStore();
       const noSecret = createHostServer({
         enableSignHttp: true,
@@ -108,7 +113,9 @@ describe('host signToken mint / result (WPROOF-02)', () => {
         await new Promise((r) => noSecret.close(r));
       }
 
-      const auth2 = createAuthRuntime(MINT_ENV, { nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
+      const auth2 = createAuthRuntime(MINT_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(), nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
       const server = createHostServer({
         enableSignHttp: true,
         env: MINT_ENV,
@@ -140,7 +147,9 @@ describe('host signToken mint / result (WPROOF-02)', () => {
       const noBase = createHostServer({
         enableSignHttp: true,
         env: { ...AUTH_ENV, CAPY_SIGN_MINT_SECRET: 'mint-secret-test' },
-        authRuntime: createAuthRuntime(AUTH_ENV, { nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() }),
+        authRuntime: createAuthRuntime(AUTH_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(), nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() }),
         signTokenStore: new SignTokenStore(),
         nowMs: 1_700_000_000_000,
       });
@@ -159,7 +168,9 @@ describe('host signToken mint / result (WPROOF-02)', () => {
         await new Promise((r) => noBase.close(r));
       }
 
-      const auth = createAuthRuntime(MINT_ENV, { nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
+      const auth = createAuthRuntime(MINT_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(), nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
       const store = new SignTokenStore();
       const server = createHostServer({
         enableSignHttp: true,
@@ -209,7 +220,9 @@ describe('host signToken mint / result (WPROOF-02)', () => {
   describe('HTML bootstrap gate (t02 / AC-W09)', () => {
     it('fail-closed for unknown/expired/consumed; HTML closed after challenge consume', async () => {
       const wallet = ethers.Wallet.createRandom();
-      const auth = createAuthRuntime(MINT_ENV, { nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
+      const auth = createAuthRuntime(MINT_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(), nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
       const store = new SignTokenStore();
       const server = createHostServer({
         enableSignHttp: true,
@@ -267,7 +280,9 @@ describe('host signToken mint / result (WPROOF-02)', () => {
   describe('/result transitions (t03 / arch-03)', () => {
     it('wallet_reject leaves pending; later verify → ok; ok readable after HTML consume', async () => {
       const wallet = ethers.Wallet.createRandom();
-      const auth = createAuthRuntime(MINT_ENV, { nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
+      const auth = createAuthRuntime(MINT_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(), nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
       const store = new SignTokenStore();
       const server = createHostServer({
         enableSignHttp: true,
@@ -315,7 +330,9 @@ describe('host signToken mint / result (WPROOF-02)', () => {
 
     it('parallel reject + success: server ok precedence (arch-03)', async () => {
       const wallet = ethers.Wallet.createRandom();
-      const auth = createAuthRuntime(MINT_ENV, { nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
+      const auth = createAuthRuntime(MINT_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(), nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
       const store = new SignTokenStore();
       const server = createHostServer({
         enableSignHttp: true,
@@ -360,7 +377,9 @@ describe('host signToken mint / result (WPROOF-02)', () => {
   describe('result write-fail / POC fail-closed (t05)', () => {
     it('verify ok + write fail → login done, HTML closed, /result pending then 404 after expiresAt', async () => {
       const wallet = ethers.Wallet.createRandom();
-      const auth = createAuthRuntime(MINT_ENV, { nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
+      const auth = createAuthRuntime(MINT_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(), nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
       const store = new SignTokenStore();
       store.setFailNextWriteOk(true);
       const server = createHostServer({

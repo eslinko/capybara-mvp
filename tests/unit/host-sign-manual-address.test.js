@@ -1,5 +1,8 @@
 'use strict';
 
+const { MembershipStore } = require('../../packages/core/src/membership');
+const { InviteStore } = require('../../packages/core/src/invite');
+
 const http = require('http');
 const { expect } = require('chai');
 const { ethers } = require('ethers');
@@ -93,6 +96,8 @@ describe('host sign manual address entry (WPROOF-07 / G5)', () => {
   it('HTML includes editable address field (AC-G5-01)', async () => {
     const wallet = ethers.Wallet.createRandom();
     const auth = createAuthRuntime(MINT_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(),
       nowMs: 1_700_000_000_000,
       authPort: createMemorySupabaseAuthDouble(),
     });
@@ -138,6 +143,8 @@ describe('host sign manual address entry (WPROOF-07 / G5)', () => {
     const mintWallet = ethers.Wallet.createRandom();
     const typedWallet = ethers.Wallet.createRandom();
     const auth = createAuthRuntime(MINT_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(),
       nowMs: 1_700_000_000_000,
       authPort: createMemorySupabaseAuthDouble(),
     });
@@ -228,6 +235,8 @@ describe('host sign manual address entry (WPROOF-07 / G5)', () => {
     const mintWallet = ethers.Wallet.createRandom();
     const typedWallet = ethers.Wallet.createRandom();
     const auth = createAuthRuntime(MINT_ENV, {
+        membershipStore: new MembershipStore(),
+        inviteStore: new InviteStore(),
       nowMs: 1_700_000_000_000,
       authPort: createMemorySupabaseAuthDouble(),
     });

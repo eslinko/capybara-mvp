@@ -64,7 +64,7 @@ function issueParentSession(membershipStore, parent, nowMs = 1_700_000_000_000) 
 
 describe('invite / createInvite (INV-01)', () => {
   describe('InviteStore + normalize (t01–t02)', () => {
-    it('stores open invite with from/to/role/familyId; normalizes addresses', () => {
+    it('stores open invite with from/to/role/familyId; normalizes addresses', async () => {
       const invites = new InviteStore();
       const row = invites.addInvite({
         id: 'inv-1',
@@ -84,7 +84,7 @@ describe('invite / createInvite (INV-01)', () => {
       expect(invites.listOpenByToInFamily('fam-inv', CHILD_INVITEE)).to.have.length(1);
     });
 
-    it('rejects empty to on store add; role mutation API absent (AC-M07)', () => {
+    it('rejects empty to on store add; role mutation API absent (AC-M07)', async () => {
       const invites = new InviteStore();
       expect(() =>
         invites.addInvite({
@@ -108,12 +108,12 @@ describe('invite / createInvite (INV-01)', () => {
   });
 
   describe('createInvite happy paths (t03–t04, t06) — AC-M01/M02/M04', () => {
-    it('parent createInvite → Invite with from,to,role,familyId (AC-M01/M02)', () => {
+    it('parent createInvite → Invite with from,to,role,familyId (AC-M01/M02)', async () => {
       const { store, parent } = seedBootstrappedFamily();
       const invites = new InviteStore();
       const { dualInput } = issueParentSession(store, parent);
 
-      const invite = createInvite({
+      const invite = await createInvite({
         inviteStore: invites,
         membershipStore: store,
         dualInput,
@@ -134,12 +134,12 @@ describe('invite / createInvite (INV-01)', () => {
       expect(invite.displayName).to.equal('Bastian');
     });
 
-    it('co-parent invite role=parent same path (AC-M04)', () => {
+    it('co-parent invite role=parent same path (AC-M04)', async () => {
       const { store, parent } = seedBootstrappedFamily();
       const invites = new InviteStore();
       const { dualInput } = issueParentSession(store, parent);
 
-      const invite = createInvite({
+      const invite = await createInvite({
         inviteStore: invites,
         membershipStore: store,
         dualInput,
@@ -156,51 +156,58 @@ describe('invite / createInvite (INV-01)', () => {
   });
 
   describe('preconditions + refusals (t04–t05, t06)', () => {
-    it('empty to → reject (AC-M02)', () => {
+    it('empty to → reject (AC-M02)', async () => {
       const { store, parent } = seedBootstrappedFamily();
       const invites = new InviteStore();
       const { dualInput } = issueParentSession(store, parent);
 
-      expect(() =>
-        createInvite({
+            let _err;
+      try {
+        await createInvite({
           inviteStore: invites,
           membershipStore: store,
           dualInput,
           to: '   ',
           role: 'child',
           familyId: 'fam-inv',
-        }),
-      )
-        .to.throw(/to/)
-        .and.satisfy((e) => e.code === 'EINVITE_EMPTY_TO');
+        });
+      } catch (e) { _err = e; }
+      expect(_err).to.exist;
+      expect(String(_err && _err.message || _err)).to.match(/to/);
+      expect(_err).to.satisfy((e) => e.code === 'EINVITE_EMPTY_TO');
+
     });
 
-    it('non-bootstrapped family → deny (AC-M05)', () => {
+    it('non-bootstrapped family → deny (AC-M05)', async () => {
       const { store, parent } = seedBootstrappedFamily({ bootstrapped: false });
       const invites = new InviteStore();
       const { dualInput } = issueParentSession(store, parent);
 
-      expect(() =>
-        createInvite({
+            let _err;
+      try {
+        await createInvite({
           inviteStore: invites,
           membershipStore: store,
           dualInput,
           to: CHILD_INVITEE,
           role: 'child',
           familyId: 'fam-inv',
-        }),
-      )
-        .to.throw(/bootstrapped/i)
-        .and.satisfy((e) => e.code === 'EINVITE_NOT_BOOTSTRAPPED');
+        });
+      } catch (e) { _err = e; }
+      expect(_err).to.exist;
+      expect(String(_err && _err.message || _err)).to.match(/bootstrapped/i);
+      expect(_err).to.satisfy((e) => e.code === 'EINVITE_NOT_BOOTSTRAPPED');
+
     });
 
-    it('missing DualAuth bearer → DualAuth deny before write', () => {
+    it('missing DualAuth bearer → DualAuth deny before write', async () => {
       const { store } = seedBootstrappedFamily();
       const invites = new InviteStore();
       const sessions = new BearerSessionStore();
 
-      expect(() =>
-        createInvite({
+            let _err;
+      try {
+        await createInvite({
           inviteStore: invites,
           membershipStore: store,
           dualInput: {
@@ -213,15 +220,17 @@ describe('invite / createInvite (INV-01)', () => {
           to: CHILD_INVITEE,
           role: 'child',
           familyId: 'fam-inv',
-        }),
-      )
-        .to.throw(/DualAuthGate deny/)
-        .and.satisfy((e) => e.code === 'EAUTH_DUAL_DENY');
+        });
+      } catch (e) { _err = e; }
+      expect(_err).to.exist;
+      expect(String(_err && _err.message || _err)).to.match(/DualAuthGate deny/);
+      expect(_err).to.satisfy((e) => e.code === 'EAUTH_DUAL_DENY');
+
 
       expect(invites.listByFamily('fam-inv')).to.have.length(0);
     });
 
-    it('child actor lacks family.members_settings → RoleGate deny', () => {
+    it('child actor lacks family.members_settings → RoleGate deny', async () => {
       const { store } = seedBootstrappedFamily();
       const child = store.addMembership({
         id: 'm-child-actor',
@@ -239,8 +248,9 @@ describe('invite / createInvite (INV-01)', () => {
         { nowMs, ttlMs: 120_000 },
       );
 
-      expect(() =>
-        createInvite({
+            let _err;
+      try {
+        await createInvite({
           inviteStore: invites,
           membershipStore: store,
           dualInput: {
@@ -255,13 +265,15 @@ describe('invite / createInvite (INV-01)', () => {
           to: CHILD_INVITEE,
           role: 'child',
           familyId: 'fam-inv',
-        }),
-      )
-        .to.throw(/parent_required|RoleGate deny/)
-        .and.satisfy((e) => e.code === 'EROLEGATE_DENY');
+        });
+      } catch (e) { _err = e; }
+      expect(_err).to.exist;
+      expect(String(_err && _err.message || _err)).to.match(/parent_required|RoleGate deny/);
+      expect(_err).to.satisfy((e) => e.code === 'EROLEGATE_DENY');
+
     });
 
-    it('address already bound to conflicting role → deny (FR-M03)', () => {
+    it('address already bound to conflicting role → deny (FR-M03)', async () => {
       const { store, parent } = seedBootstrappedFamily();
       store.addMembership({
         id: 'm-other-child',
@@ -272,26 +284,29 @@ describe('invite / createInvite (INV-01)', () => {
       const invites = new InviteStore();
       const { dualInput } = issueParentSession(store, parent);
 
-      expect(() =>
-        createInvite({
+            let _err;
+      try {
+        await createInvite({
           inviteStore: invites,
           membershipStore: store,
           dualInput,
           to: CHILD_INVITEE,
           role: 'parent',
           familyId: 'fam-inv',
-        }),
-      )
-        .to.throw(/conflict|already/i)
-        .and.satisfy((e) => e.code === 'EINVITE_ADDRESS_ROLE_CONFLICT');
+        });
+      } catch (e) { _err = e; }
+      expect(_err).to.exist;
+      expect(String(_err && _err.message || _err)).to.match(/conflict|already/i);
+      expect(_err).to.satisfy((e) => e.code === 'EINVITE_ADDRESS_ROLE_CONFLICT');
+
     });
 
-    it('open invite conflict for same to/family → deny', () => {
+    it('open invite conflict for same to/family → deny', async () => {
       const { store, parent } = seedBootstrappedFamily();
       const invites = new InviteStore();
       const { dualInput } = issueParentSession(store, parent);
 
-      createInvite({
+      await createInvite({
         inviteStore: invites,
         membershipStore: store,
         dualInput,
@@ -301,8 +316,9 @@ describe('invite / createInvite (INV-01)', () => {
         inviteId: 'inv-first',
       });
 
-      expect(() =>
-        createInvite({
+            let _err;
+      try {
+        await createInvite({
           inviteStore: invites,
           membershipStore: store,
           dualInput,
@@ -310,18 +326,20 @@ describe('invite / createInvite (INV-01)', () => {
           role: 'child',
           familyId: 'fam-inv',
           inviteId: 'inv-second',
-        }),
-      )
-        .to.throw(/Open invite/)
-        .and.satisfy((e) => e.code === 'EINVITE_OPEN_CONFLICT');
+        });
+      } catch (e) { _err = e; }
+      expect(_err).to.exist;
+      expect(String(_err && _err.message || _err)).to.match(/Open invite/);
+      expect(_err).to.satisfy((e) => e.code === 'EINVITE_OPEN_CONFLICT');
+
     });
 
-    it('Invite role immutable after create (AC-M07)', () => {
+    it('Invite role immutable after create (AC-M07)', async () => {
       const { store, parent } = seedBootstrappedFamily();
       const invites = new InviteStore();
       const { dualInput } = issueParentSession(store, parent);
 
-      const invite = createInvite({
+      const invite = await createInvite({
         inviteStore: invites,
         membershipStore: store,
         dualInput,
