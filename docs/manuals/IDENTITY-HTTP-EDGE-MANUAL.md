@@ -2,7 +2,7 @@
 
 **Profile:** `capybara` · **REQ:** [`../requirements/08-identity-http-edge-on-host.md`](../requirements/08-identity-http-edge-on-host.md)  
 **Architecture:** [`../architecture/08-identity-http-edge-on-host/`](../architecture/08-identity-http-edge-on-host/)  
-**Stories:** EDGE-01…06 · EDGE-11 (CORS) · EDGE-12 (Origin→SIWE) · **Host entry:** `npm start` → [`../../host/start.js`](../../host/start.js)
+**Stories:** EDGE-01…06 · EDGE-11 (CORS) · EDGE-12 (Origin→SIWE) · WPROOF-10 (Connector launch) · **Host entry:** `npm start` → [`../../host/start.js`](../../host/start.js)
 
 This manual is the AC-I07 deliverable. It documents how to bootstrap and verify the identity HTTP edge on the same process as `GET /health`.
 
@@ -14,6 +14,7 @@ This manual is the AC-I07 deliverable. It documents how to bootstrap and verify 
 - Unit/harness green proves host compose under test (EDGE-01…03 · EDGE-11 CORS). It does **not** prove live DualAuth on Railway, live Supabase (REQ-09), MetaMask POC (REQ-10), or **Live Connector Pass**.
 - EDGE-11 unit green ≠ invent Live Connector CORS Pass (AC-EDGE-11-04). Same-origin Connector mock ≠ CORS substitute.
 - EDGE-12: allowlisted Connector `Origin` → SIWE `domain`/`URI` (forbid `capybara.local` / `capybara://auth/challenge` on that path). Unit green ≠ invent Live Connector Pass (AC-EDGE-12-05).
+- WPROOF-10: `DOGESTONIA_CONNECTOR_URL` → `GET /connector/launch` (`mode=platform-auth&platform=capybara`); default compose retires `/sign/*`. Unit green ≠ invent Live Connector Pass (AC-WPROOF-10-05).
 - Do **not** claim Phase 2 Done from this manual or from unit green alone.
 
 ---
@@ -29,6 +30,7 @@ Required for identity routes (`/auth/*`, `/v1/capabilities/profile.self`) — pr
 | `CAPY_BEARER_SECRET` | Bearer signing secret |
 | `PORT` | Listen port (`npm start` fail-closed without it) |
 | `CAPY_CONNECTOR_CORS_ORIGINS` | Optional comma-separated extra Connector Origins for `/auth/challenge|verify` CORS (EDGE-11). Defaults always allow `http://127.0.0.1:8080` + `http://localhost:8080`. Never `*`. Soft≠Live. |
+| `DOGESTONIA_CONNECTOR_URL` | Connector base URL for `GET /connector/launch` (WPROOF-10). Name only — no secrets. Soft≠Live. |
 
 Bootstrap address settings (**separate fields** — never merge):
 

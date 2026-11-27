@@ -3,10 +3,10 @@
 **REQ:** [`../requirements/10-wallet-address-proof-client.md`](../requirements/10-wallet-address-proof-client.md) §2 Operator manual · AC-W07 · AC-W08 · AC-W05 · AC-W04  
 **REQ-08 pointer:** [`../requirements/08-identity-http-edge-on-host.md`](../requirements/08-identity-http-edge-on-host.md) AC-I07 (operator bootstrap/verify surface)  
 **Architecture:** [`../architecture/10-wallet-address-proof-client/00-overview.md`](../architecture/10-wallet-address-proof-client/00-overview.md) · [`02-channels-and-sign-token.md`](../architecture/10-wallet-address-proof-client/02-channels-and-sign-token.md) · [`03-story-coverage-gate.md`](../architecture/10-wallet-address-proof-client/03-story-coverage-gate.md)  
-**Stories:** WPROOF-01..06 (Present) · **WPROOF-07** manual address (G5)  
-**Encoding:** one host page JS (`/sign/client.js`) for **both** channels — **no** Channel A/B encoding fork.
+**Stories:** WPROOF-01..09 (historical Sign) · **WPROOF-10** Connector launch + Sign retire (option A)  
+**Encoding (historical):** one host page JS (`/sign/client.js`) for **both** channels — **no** Channel A/B encoding fork. **Primary UX now:** Connector (`DOGESTONIA_CONNECTOR_URL` → `GET /connector/launch`).
 
-> **Honesty:** Live Channel A + B on Railway recorded **PASS** `2026-11-24` (evidence under `manuals/evidence/`). Reject/retry optional rows may stay Residual. Docs alone ≠ invent Pass for other hosts. Phase 2 Done still needs REQ-08/09.
+> **Honesty (Soft≠Live):** Live Channel A + B on Railway recorded **PASS** `2026-11-24` (evidence under `manuals/evidence/` — **retained**). Primary UX = Connector platform-auth. Unit/`GET /connector/launch` ≠ invent **Live Connector Pass**. Reject/retry optional rows may stay Residual. Phase 2 Done still needs live evidence where claimed.
 
 ---
 
@@ -14,11 +14,28 @@
 
 | Topic | Where |
 |-------|-------|
-| Channel A — desktop MetaMask **extension** | [`WALLET-ADDRESS-PROOF-CHANNEL-A-DESKTOP.md`](./WALLET-ADDRESS-PROOF-CHANNEL-A-DESKTOP.md) |
-| Channel B — mobile MetaMask **in-app browser** | [`WALLET-ADDRESS-PROOF-CHANNEL-B-MOBILE.md`](./WALLET-ADDRESS-PROOF-CHANNEL-B-MOBILE.md) |
-| Dual-channel test matrix | [`WALLET-ADDRESS-PROOF-DUAL-CHANNEL-MATRIX.md`](./WALLET-ADDRESS-PROOF-DUAL-CHANNEL-MATRIX.md) |
+| **Primary — Connector launch (WPROOF-10)** | §0.1 below · arch [`05-connector-launch-and-sign-retire.md`](../architecture/10-wallet-address-proof-client/05-connector-launch-and-sign-retire.md) |
+| Channel A — desktop MetaMask **extension** (historical evidence) | [`WALLET-ADDRESS-PROOF-CHANNEL-A-DESKTOP.md`](./WALLET-ADDRESS-PROOF-CHANNEL-A-DESKTOP.md) |
+| Channel B — mobile MetaMask **in-app browser** (historical evidence) | [`WALLET-ADDRESS-PROOF-CHANNEL-B-MOBILE.md`](./WALLET-ADDRESS-PROOF-CHANNEL-B-MOBILE.md) |
+| Dual-channel test matrix (historical) | [`WALLET-ADDRESS-PROOF-DUAL-CHANNEL-MATRIX.md`](./WALLET-ADDRESS-PROOF-DUAL-CHANNEL-MATRIX.md) |
 | Identity host bootstrap | [`IDENTITY-HTTP-EDGE-MANUAL.md`](./IDENTITY-HTTP-EDGE-MANUAL.md) |
-| Terminal POC (`CAPY_POOL_ADDRESS` → mint → poll `/result`) | `cd capybara && npm run wallet-proof-poc` · [`../../cli/wallet-address-proof-poc.js`](../../cli/wallet-address-proof-poc.js) |
+| Terminal POC mint→`/result` | **Retired** from default host compose (WPROOF-10 option A) · CLI residual Soft only |
+
+### 0.1 Connector launch (primary UX)
+
+| Item | Rule |
+|------|------|
+| Env | `DOGESTONIA_CONNECTOR_URL` = Connector **base** URL (no secrets; name only in docs) |
+| Launch | `{DOGESTONIA_CONNECTOR_URL}?mode=platform-auth&platform=capybara` |
+| Host | `GET /connector/launch` → JSON `{ ok, launchUrl }` · `?redirect=1` → 302 |
+| Address | Typed **on Connector** — not in Capybara URL |
+| Keep | `POST /auth/challenge\|verify` · bootstrap · invite · Bearer |
+| Soft≠Live | Soft env + unit ≠ invent Live Connector Pass |
+
+```bash
+# after npm start with DOGESTONIA_CONNECTOR_URL set (see .env.example — name only)
+curl -sS "$HOST/connector/launch"
+```
 
 ---
 
@@ -27,13 +44,11 @@
 | Need | Present |
 |------|---------|
 | Host | `cd capybara && npm start` (PORT + identity env per IDENTITY manual / REQ-08) |
-| Mint | `CAPY_SIGN_MINT_SECRET` · header `X-Capy-Sign-Mint-Secret` |
-| Public base | `CAPY_PUBLIC_BASE_URL` = absolute **HTTPS** origin, no trailing slash |
-| Sign address | MetaMask account (POC often uses `CAPY_POOL_ADDRESS`) |
-| Channel A | Desktop browser + MetaMask **extension** |
-| Channel B | Phone + MetaMask **in-app browser** + HTTPS unique-token URL |
+| Connector base | `DOGESTONIA_CONNECTOR_URL` (WPROOF-10 primary) |
+| Mint / Sign UI | **Retired** default compose — historical `/sign/*` Soft residual only |
+| Channel A/B | Historical evidence retained (2026-11-24) |
 
-Bare `GET /sign` without token is **not** a valid session start.
+Bare `GET /sign` without token is **not** a valid session start. Default host does **not** serve `/sign/mint`.
 
 ---
 
