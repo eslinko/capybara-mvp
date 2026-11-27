@@ -1,10 +1,10 @@
 'use strict';
 
 /**
- * MCP-03 Soft — Action ctor / executeFamilyAction with isolated env.
+ * MCP-03/04 Soft — Action ctor / executeFamilyAction with isolated env.
  * Never bare `router.route` on HTTP · never mutate process.env for tool args.
  * Injectable confirmFn/isTty Soft for MCP-05 wire later.
- * Soft≠Live · ≠ invent Phase 4 Done / Live Pass · Express money CRUD OOS.
+ * Soft≠Live · ≠ invent Phase 4 Done / Live Pass / REQ-12 Accept · Express money CRUD OOS.
  */
 
 const {
@@ -18,6 +18,12 @@ const SweepToParentAction = require('../../packages/core/src/actions/SweepToPare
 const DailyPaymentsAction = require('../../packages/core/src/actions/DailyPaymentsAction');
 const ChargeToPoolAction = require('../../packages/core/src/actions/ChargeToPoolAction');
 const ActivityPayoutAction = require('../../packages/core/src/actions/ActivityPayoutAction');
+const {
+  DebtLedgerAction,
+} = require('../../packages/core/src/actions/DebtLedgerAction');
+const {
+  AdvanceLedgerAction,
+} = require('../../packages/core/src/actions/AdvanceLedgerAction');
 
 /** @type {import('../../packages/core/src/CapybaraRouter') | null} */
 let sharedRouter = null;
@@ -89,11 +95,27 @@ function resetSharedRouterForTests() {
  *   router: object,
  *   confirmFn?: (question: string) => Promise<string>,
  *   isTty?: boolean,
+ *   debtRoot?: string,
+ *   advanceRoot?: string,
+ *   limitsPath?: string,
+ *   decimals?: number,
+ *   now?: Date,
  * }} input
  * @returns {{ kind: 'health' } | { kind: 'action', instance: { execute: () => Promise<object> } }}
  */
 function createFamilyActionInstance(input) {
-  const { tool, isolatedEnv, router, confirmFn, isTty } = input;
+  const {
+    tool,
+    isolatedEnv,
+    router,
+    confirmFn,
+    isTty,
+    debtRoot,
+    advanceRoot,
+    limitsPath,
+    decimals,
+    now,
+  } = input;
 
   if (tool.action === 0) {
     return { kind: 'health' };
@@ -157,6 +179,35 @@ function createFamilyActionInstance(input) {
     };
   }
 
+  if (tool.action === 6) {
+    return {
+      kind: 'action',
+      instance: new DebtLedgerAction(router, {
+        env: isolatedEnv,
+        confirmFn,
+        isTty,
+        debtRoot,
+        limitsPath,
+        decimals,
+        now,
+      }),
+    };
+  }
+
+  if (tool.action === 7) {
+    return {
+      kind: 'action',
+      instance: new AdvanceLedgerAction(router, {
+        env: isolatedEnv,
+        confirmFn,
+        isTty,
+        advanceRoot,
+        limitsPath,
+        decimals,
+      }),
+    };
+  }
+
   throw Object.assign(
     new Error(`Unsupported family MCP action: ${tool.action}`),
     { code: 'EMCP_ACTION_UNSUPPORTED' },
@@ -193,6 +244,11 @@ async function executeHealthCheck(router) {
  *   baseEnv?: NodeJS.ProcessEnv | Record<string, string | undefined>,
  *   confirmFn?: (question: string) => Promise<string>,
  *   isTty?: boolean,
+ *   debtRoot?: string,
+ *   advanceRoot?: string,
+ *   limitsPath?: string,
+ *   decimals?: number,
+ *   now?: Date,
  *   executeHook?: (ctx: {
  *     tool: object,
  *     isolatedEnv: Record<string, string>,
@@ -244,6 +300,11 @@ async function executeFamilyAction(input) {
     router,
     confirmFn: input.confirmFn,
     isTty: input.isTty,
+    debtRoot: input.debtRoot,
+    advanceRoot: input.advanceRoot,
+    limitsPath: input.limitsPath,
+    decimals: input.decimals,
+    now: input.now,
   });
 
   let result;

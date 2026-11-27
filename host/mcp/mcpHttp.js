@@ -1,11 +1,11 @@
 'use strict';
 
 /**
- * MCP-01/02/03 — in-process MCP Streamable HTTP/SSE + DualAuth→parent→RoleGate Soft
- * + family tools 0–4 via actionInvoker (isolated env · not bare router.route).
+ * MCP-01/02/03/04 — in-process MCP Streamable HTTP/SSE + DualAuth→parent→RoleGate Soft
+ * + family tools 0–4 + debt/advance 6/7 via actionInvoker (isolated env · not bare router.route).
  * Path lock: `/mcp` (+ trailing slash). Foreign paths → false without writing res.
  * Enable gate: caller mounts only when CAPY_MCP_ENABLED=1 (fail-closed otherwise).
- * Soft≠Live · ≠ invent Live Pass / Phase 4 Done.
+ * Soft≠Live · ≠ invent Live Pass / Phase 4 Done / REQ-12 Accept.
  */
 
 const { z } = require('zod');
@@ -54,7 +54,8 @@ function isMcpEnabled(env) {
 }
 
 /**
- * Soft MCP server — MCP-02 gate-probe tools (AC-M05) + MCP-03 family tools 0–4.
+ * Soft MCP server — MCP-02 gate-probe tools (AC-M05) + MCP-03/04 family tools 0–4 + 6/7.
+ * Family tools supersede overlapping MCP-02 probe names (e.g. debt.view).
  *
  * @param {{
  *   req?: import('http').IncomingMessage,
@@ -82,6 +83,7 @@ function createCapybaraMcpServer(opts = {}) {
 
   const req = opts.req;
   const runtime = opts.runtime;
+  const familyToolNames = new Set(FAMILY_MCP_TOOLS.map((t) => t.name));
 
   /**
    * @param {unknown} args
@@ -153,6 +155,8 @@ function createCapybaraMcpServer(opts = {}) {
   }
 
   for (const tool of PARENT_ONLY_MCP_TOOLS) {
+    // Soft: family MCP-04 tools with real invoke win over MCP-02 gate-only stubs.
+    if (familyToolNames.has(tool.name)) continue;
     server.registerTool(
       tool.name,
       {
