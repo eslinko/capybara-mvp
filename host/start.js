@@ -7,8 +7,14 @@
  * Phase 2: same process mounts `/auth/*` (EDGE-01/02) + `POST /auth/invite` (INV-04) +
  * DualAuthGate→RoleGate capability probe `/v1/capabilities/profile.self` (EDGE-03).
  * Live Supabase port = REQ-09 residual.
- * PGDUR-06 Soft≠Live: startup presence reports non-secret store_kind
- * (postgres | fail-closed | memory-inject). Live cast Pass Residual OK ≠ invent.
+ *
+ * Membership/Invite/verified proof compose Soft≠Live (PGDUR-02/03 · EDGE-13):
+ *   postgres — Auth config + createClient Present (production Soft primary)
+ *   fail-closed — missing/invalid config or client (deny durable writes)
+ *   memory-inject — unit/test inject only (AC-P08) — NOT live SoT
+ * Do NOT claim Membership/Invite in-memory residual as production SoT.
+ * PGDUR-06: startup presence reports non-secret store_kind.
+ * Live cast / redeploy Pass Residual OK ≠ invent (EDGE-08 / PGDUR-05).
  * Host dotenv load via CAPYBARA_DOTENV_PATH before main() (EDGE-05).
  * Unit green alone ≠ Phase 2 Done / REQ-12 Done; family onboarding Done not claimed.
  */

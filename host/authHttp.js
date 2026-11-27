@@ -52,6 +52,7 @@ const {
   assertVerifiedProofRecorded,
   VerifiedAddressProofStore,
   PostgresVerifiedAddressProofStore,
+  FailClosedVerifiedAddressProofStore,
   authError,
 } = require('../packages/core/src/auth');
 const {
@@ -419,6 +420,8 @@ function sanitizePublicAuthMessage(message, config) {
  * Resolve durable Membership/Invite stores (PGDUR-02 / AC-P01·P02·P06·P08).
  * Inject wins → Postgres when config Present → fail-closed when missing/invalid.
  * Never silent RAM-only SoT when durable mode expected.
+ * EDGE-13 Soft≠Live: FailClosed path uses FailClosedVerifiedAddressProofStore
+ * (not unlabeled Memory). Memory proof = inject/test only (AC-P08).
  *
  * @param {import('../packages/core/src/auth/loadAuthEnvConfig').AuthEnvConfig | null} config
  * @param {{
@@ -436,14 +439,13 @@ function sanitizePublicAuthMessage(message, config) {
  * }}
  */
 function resolveMembershipInviteStores(config, opts = {}) {
-  const memoryProof =
-    opts.verifiedProofStore || new VerifiedAddressProofStore();
-
   if (opts.membershipStore || opts.inviteStore) {
+    // Partial/full inject XOR → memory branch (test-only Soft≠Live).
     return {
       membershipStore: opts.membershipStore || new MembershipStore(),
       inviteStore: opts.inviteStore || new InviteStore(),
-      verifiedProofStore: memoryProof,
+      verifiedProofStore:
+        opts.verifiedProofStore || new VerifiedAddressProofStore(),
       storeKind: 'memory-inject',
     };
   }
@@ -452,7 +454,9 @@ function resolveMembershipInviteStores(config, opts = {}) {
     return {
       membershipStore: new FailClosedMembershipStore(reason),
       inviteStore: new FailClosedInviteStore(reason),
-      verifiedProofStore: memoryProof,
+      verifiedProofStore:
+        opts.verifiedProofStore ||
+        new FailClosedVerifiedAddressProofStore(reason),
       storeKind: 'fail-closed',
     };
   }
@@ -465,7 +469,9 @@ function resolveMembershipInviteStores(config, opts = {}) {
     return {
       membershipStore: new FailClosedMembershipStore(reason),
       inviteStore: new FailClosedInviteStore(reason),
-      verifiedProofStore: memoryProof,
+      verifiedProofStore:
+        opts.verifiedProofStore ||
+        new FailClosedVerifiedAddressProofStore(reason),
       storeKind: 'fail-closed',
     };
   }
@@ -490,7 +496,9 @@ function resolveMembershipInviteStores(config, opts = {}) {
     return {
       membershipStore: new FailClosedMembershipStore(reason),
       inviteStore: new FailClosedInviteStore(reason),
-      verifiedProofStore: memoryProof,
+      verifiedProofStore:
+        opts.verifiedProofStore ||
+        new FailClosedVerifiedAddressProofStore(reason),
       storeKind: 'fail-closed',
     };
   }

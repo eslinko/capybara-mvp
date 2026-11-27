@@ -17,6 +17,9 @@ const { VerifiedAddressProofStore } = require('./VerifiedAddressProofStore');
 const {
   PostgresVerifiedAddressProofStore,
 } = require('./PostgresVerifiedAddressProofStore');
+const {
+  FailClosedVerifiedAddressProofStore,
+} = require('./FailClosedVerifiedAddressProofStore');
 const { authError } = require('./errors');
 const {
   requireAuthEnvClasses,
@@ -54,6 +57,7 @@ module.exports = {
   verifyAddressProof,
   VerifiedAddressProofStore,
   PostgresVerifiedAddressProofStore,
+  FailClosedVerifiedAddressProofStore,
   authError,
   requireAuthEnvClasses,
   loadAuthEnvConfig,
