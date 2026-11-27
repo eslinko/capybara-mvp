@@ -8,6 +8,8 @@
  * local `http://127.0.0.1:8080` / `http://localhost:8080` + optional
  * `CAPY_CONNECTOR_CORS_ORIGINS` (comma-separated exact Origins, e.g. Railway HTTPS).
  * Echo allowed Origin (not `*`) · OPTIONS preflight · unknown Origin fail-closed.
+ * EDGE-12 / AC-I09: allowlisted Connector Origin → SIWE `domain`=host · `uri`=absolute origin
+ * (forbid `capybara.local` / `capybara://auth/challenge` on that path). Exact UTF-8 `message`.
  * Soft≠Live: unit green ≠ invent Live Connector Pass. No body-contract invent.
  *
  * Production keyMap (arch-08): SUPABASE_URL, SUPABASE_SECRET_KEY
@@ -136,6 +138,72 @@ function connectorCorsResponseHeaders(allowedOrigin) {
     'Access-Control-Allow-Headers': 'Content-Type, Accept',
     Vary: 'Origin',
   };
+}
+
+/**
+ * Derive SIWE-class domain (host) + URI (absolute origin) from Origin string.
+ * Arch-08/04 §3 · PAUTH-09 §4.
+ *
+ * @param {string} origin
+ * @returns {{ domain: string, uri: string } | null}
+ */
+function deriveSiweDomainUriFromOrigin(origin) {
+  if (typeof origin !== 'string' || !origin.trim()) {
+    return null;
+  }
+  try {
+    const parsed = new URL(origin.trim());
+    if (!parsed.protocol || !parsed.host) {
+      return null;
+    }
+    const uri = `${parsed.protocol}//${parsed.host}`;
+    return { domain: parsed.host, uri };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * When Origin is on Connector CORS allowlist, return domain/uri for issueChallenge.
+ * Non-Connector clients (no/unknown Origin) keep builder defaults.
+ *
+ * @param {import('http').IncomingMessage} req
+ * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
+ * @returns {{ domain?: string, uri?: string }}
+ */
+function resolveConnectorSiweChallengeOpts(req, env) {
+  const allowlist = resolveConnectorCorsAllowlist(env);
+  const allowed = resolveAllowedConnectorOrigin(req, allowlist);
+  if (!allowed) {
+    return {};
+  }
+  const derived = deriveSiweDomainUriFromOrigin(allowed);
+  if (!derived) {
+    return {};
+  }
+  return { domain: derived.domain, uri: derived.uri };
+}
+
+/**
+ * Fail-closed: Connector-path message must not retain forbidden defaults.
+ *
+ * @param {string} message
+ * @param {{ domain?: string, uri?: string }} siweOpts
+ */
+function assertConnectorSiweMessageNotDefault(message, siweOpts) {
+  if (!siweOpts || !siweOpts.domain) {
+    return;
+  }
+  const text = String(message || '');
+  if (
+    text.includes('capybara.local wants you') ||
+    text.includes('URI: capybara://auth/challenge')
+  ) {
+    throw authError(
+      'EAUTH_BAD_PAYLOAD',
+      'Connector SIWE must not use capybara.local / capybara://auth/challenge defaults',
+    );
+  }
 }
 
 /**
@@ -603,9 +671,13 @@ async function tryHandleAuthRequest(req, res, runtime) {
       const config = requireRuntimeConfig(runtime);
       void config;
       const body = await readJsonBody(req);
+      // EDGE-12: Connector allowlisted Origin → domain/URI (else legacy defaults)
+      const siweOpts = resolveConnectorSiweChallengeOpts(req, runtime.env);
       const issued = issueChallenge(runtime.challenges, body.address, {
         nowMs: runtime.nowMs,
+        ...siweOpts,
       });
+      assertConnectorSiweMessageNotDefault(issued.message, siweOpts);
       writeAuthJson(200, {
         ok: true,
         challengeId: issued.challengeId,
@@ -832,6 +904,9 @@ module.exports = {
   isConnectorCorsAuthPath,
   resolveAllowedConnectorOrigin,
   connectorCorsResponseHeaders,
+  deriveSiweDomainUriFromOrigin,
+  resolveConnectorSiweChallengeOpts,
+  assertConnectorSiweMessageNotDefault,
   tryHandleAuthRequest,
   isAuthPath,
   extractBearerToken,
