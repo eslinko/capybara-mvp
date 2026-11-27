@@ -18,10 +18,10 @@
  *
  * Bootstrap (EDGE-02 / AC-I04): pool + parent proofs; defaults from distinct
  * CAPY_POOL_ADDRESS / PARENT_ADDRESS; familyId generated when omitted (U4).
- * MembershipStore in-memory residual (redeploy → re-bootstrap; EDGE-04 pointer).
- * InviteStore mounted for INV-04 host createInvite (in-memory).
- * EDGE-08 / G8: membership+invite durability across Railway redeploy = Absent /
- * Residual continued (no invent Phase 3 DDL Done this wave).
+ * PGDUR-02: Membership/Invite → Postgres adapters when Auth env Present
+ * (same supabase-js service client; no invent pg/DATABASE_URL). Inject memory
+ * doubles via opts (AC-P08). Missing/invalid env → fail-closed stores (AC-P06),
+ * not silent empty RAM SoT. Soft≠Live: adapters ≠ invent REQ-12 Done / Live Pass.
  * INV-05: after valid proof, open Invite for `to` → core `bindInviteeAndAccept`
  * (role from Invite; client-claimed role ignored). No open invite → Auth-only.
  *
@@ -45,13 +45,22 @@ const {
   bootstrapPoolAndFounder,
   authError,
 } = require('../packages/core/src/auth');
-const { MembershipStore } = require('../packages/core/src/membership');
+const {
+  MembershipStore,
+  PostgresMembershipStore,
+  FailClosedMembershipStore,
+} = require('../packages/core/src/membership');
 const {
   InviteStore,
+  PostgresInviteStore,
+  FailClosedInviteStore,
   findOpenInviteByTo,
   bindInviteeAndAccept,
   assertInviteeNoFamilyCaps,
 } = require('../packages/core/src/invite');
+const {
+  createServiceSupabaseClient,
+} = require('../packages/core/src/supabase/createServiceClient');
 
 /** @type {{ supabaseUrl: string, supabaseKey: string, bearerSecret: string }} */
 const PRODUCTION_AUTH_KEY_MAP = {
@@ -373,6 +382,66 @@ function sanitizePublicAuthMessage(message, config) {
 }
 
 /**
+ * Resolve durable Membership/Invite stores (PGDUR-02 / AC-P01·P02·P06·P08).
+ * Inject wins → Postgres when config Present → fail-closed when missing/invalid.
+ * Never silent RAM-only SoT when durable mode expected.
+ *
+ * @param {import('../packages/core/src/auth/loadAuthEnvConfig').AuthEnvConfig | null} config
+ * @param {{
+ *   membershipStore?: object,
+ *   inviteStore?: object,
+ *   createClient?: Function,
+ *   admin?: object
+ * }} opts
+ * @returns {{ membershipStore: object, inviteStore: object }}
+ */
+function resolveMembershipInviteStores(config, opts = {}) {
+  if (opts.membershipStore || opts.inviteStore) {
+    return {
+      membershipStore: opts.membershipStore || new MembershipStore(),
+      inviteStore: opts.inviteStore || new InviteStore(),
+    };
+  }
+  if (!config) {
+    const reason = 'Auth env missing/invalid — durable membership/invite unavailable';
+    return {
+      membershipStore: new FailClosedMembershipStore(reason),
+      inviteStore: new FailClosedInviteStore(reason),
+    };
+  }
+  // Postgres only when createClient provided (host compose / inject).
+  // No silent tryLoad here — avoids unit FIXTURE_ENV hitting live network;
+  // createHostServer passes tryLoadSupabaseCreateClient for production.
+  if (typeof opts.createClient !== 'function') {
+    const reason =
+      'Durable membership/invite requires supabase-js createClient (host compose)';
+    return {
+      membershipStore: new FailClosedMembershipStore(reason),
+      inviteStore: new FailClosedInviteStore(reason),
+    };
+  }
+  try {
+    const client = createServiceSupabaseClient({
+      supabaseUrl: config.supabaseUrl,
+      supabaseKey: config.supabaseKey,
+      createClient: opts.createClient,
+    });
+    return {
+      membershipStore: new PostgresMembershipStore({ client }),
+      inviteStore: new PostgresInviteStore({ client }),
+    };
+  } catch (err) {
+    const reason =
+      (err && err.message) ||
+      'Supabase service client unavailable for durable membership/invite';
+    return {
+      membershipStore: new FailClosedMembershipStore(reason),
+      inviteStore: new FailClosedInviteStore(reason),
+    };
+  }
+}
+
+/**
  * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
  * @param {{
  *   challengeStore?: import('../packages/core/src/auth/ChallengeStore').ChallengeStore,
@@ -395,6 +464,8 @@ function createAuthRuntime(env = process.env, opts = {}) {
     configError = err;
   }
 
+  const stores = resolveMembershipInviteStores(config, opts);
+
   return {
     env,
     config,
@@ -402,8 +473,8 @@ function createAuthRuntime(env = process.env, opts = {}) {
     challenges: opts.challengeStore || new ChallengeStore(),
     sessions: opts.sessionStore || new BearerSessionStore(),
     authPort: resolveAuthPort(config, opts),
-    membershipStore: opts.membershipStore || new MembershipStore(),
-    inviteStore: opts.inviteStore || new InviteStore(),
+    membershipStore: stores.membershipStore,
+    inviteStore: stores.inviteStore,
     nowMs: opts.nowMs,
   };
 }
@@ -722,7 +793,11 @@ async function tryHandleAuthRequest(req, res, runtime) {
       const inviteStore = runtime.inviteStore;
       let openInvite = null;
       if (inviteStore && !inviteId) {
-        openInvite = findOpenInviteByTo(inviteStore, proof.address, familyId);
+        openInvite = await findOpenInviteByTo(
+          inviteStore,
+          proof.address,
+          familyId,
+        );
       }
 
       if (inviteStore && (inviteId || openInvite)) {
@@ -730,7 +805,7 @@ async function tryHandleAuthRequest(req, res, runtime) {
         const preFamilyId =
           (openInvite && openInvite.familyId) || familyId || undefined;
         if (preFamilyId) {
-          assertInviteeNoFamilyCaps({
+          await assertInviteeNoFamilyCaps({
             membershipStore: runtime.membershipStore,
             toAddress: proof.address,
             familyId: preFamilyId,
@@ -897,6 +972,8 @@ module.exports = {
   resolveAuthPort,
   sanitizePublicAuthMessage,
   createAuthRuntime,
+  resolveMembershipInviteStores,
+  tryLoadSupabaseCreateClient,
   requireRuntimeConfig,
   resolveBootstrapAddresses,
   resolveBootstrapProof,

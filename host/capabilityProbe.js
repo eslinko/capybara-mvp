@@ -132,7 +132,7 @@ async function tryHandleCapabilityProbe(req, res, runtime) {
 
     const bearer = extractBearerToken(req);
 
-    const allowed = dualAuthGate({
+    const allowed = await dualAuthGate({
       bearer,
       sessionStore: runtime.sessions,
       config,
@@ -144,8 +144,10 @@ async function tryHandleCapabilityProbe(req, res, runtime) {
 
     const familyMemberships =
       typeof allowed.membership.familyId === 'string'
-        ? runtime.membershipStore.listMembershipsByFamily(
-            allowed.membership.familyId,
+        ? await Promise.resolve(
+            runtime.membershipStore.listMembershipsByFamily(
+              allowed.membership.familyId,
+            ),
           )
         : [];
 

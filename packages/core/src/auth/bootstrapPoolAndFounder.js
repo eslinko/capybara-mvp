@@ -79,14 +79,17 @@ async function bootstrapPoolAndFounder(input, opts = {}) {
   assertProofMatchesAddress(parsed.parentProof, parsed.parentAddress, 'parent');
 
   const familyId = parsed.familyId || `fam-${crypto.randomBytes(8).toString('hex')}`;
-  const existing = store.getFamily(familyId);
-  if (existing && store.isBootstrapped(familyId)) {
+  const existing = await Promise.resolve(store.getFamily(familyId));
+  const alreadyBootstrapped = existing
+    ? await Promise.resolve(store.isBootstrapped(familyId))
+    : false;
+  if (existing && alreadyBootstrapped) {
     throw authError(
       'EAUTH_BOOTSTRAP_REPLAY',
       `Family already bootstrapped: ${familyId}`,
     );
   }
-  if (existing && !store.isBootstrapped(familyId)) {
+  if (existing && !alreadyBootstrapped) {
     // Family created without bootstrap — refuse ambiguous live state
     throw authError(
       'EAUTH_BOOTSTRAP_REPLAY',
@@ -95,15 +98,17 @@ async function bootstrapPoolAndFounder(input, opts = {}) {
   }
 
   // t03 — create family + founder parent membership
-  const family = store.createFamily({ id: familyId });
+  await Promise.resolve(store.createFamily({ id: familyId }));
   const founderMembershipId =
     parsed.founderMembershipId || `m-founder-${crypto.randomBytes(6).toString('hex')}`;
-  let founderMembership = store.addMembership({
-    id: founderMembershipId,
-    familyId,
-    role: 'parent',
-    address: parsed.parentAddress,
-  });
+  let founderMembership = await Promise.resolve(
+    store.addMembership({
+      id: founderMembershipId,
+      familyId,
+      role: 'parent',
+      address: parsed.parentAddress,
+    }),
+  );
 
   // AUTH-02 seam: bind Supabase Auth user after parent proof
   const userLink = await bindAddressToAuthUser(
@@ -114,12 +119,16 @@ async function bootstrapPoolAndFounder(input, opts = {}) {
     },
     { nowMs: opts.nowMs },
   );
-  founderMembership = store.bindUserId(founderMembership.id, userLink.userId);
+  founderMembership = await Promise.resolve(
+    store.bindUserId(founderMembership.id, userLink.userId),
+  );
 
   // t04 — logical pool identity (no invent DDL)
-  store.setPoolIdentity(familyId, parsed.poolAddress);
+  await Promise.resolve(store.setPoolIdentity(familyId, parsed.poolAddress));
   // t05 — mark live so second bootstrap rejects
-  const bootstrappedFamily = store.markBootstrapped(familyId);
+  const bootstrappedFamily = await Promise.resolve(
+    store.markBootstrapped(familyId),
+  );
 
   return {
     family: bootstrappedFamily,

@@ -1,6 +1,8 @@
 'use strict';
 
 const MembershipStore = require('./MembershipStore');
+const PostgresMembershipStore = require('./PostgresMembershipStore');
+const FailClosedMembershipStore = require('./FailClosedMembershipStore');
 const { ROLES, ROLE_SET, isRole, assertRole } = require('./roles');
 const { buildActorContext } = require('./actorContext');
 const { allowedResourceSet } = require('./allowedResources');
@@ -21,6 +23,8 @@ const {
 
 module.exports = {
   MembershipStore,
+  PostgresMembershipStore,
+  FailClosedMembershipStore,
   ROLES,
   ROLE_SET,
   isRole,

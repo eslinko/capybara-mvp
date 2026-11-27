@@ -35,12 +35,18 @@ const { createSignRuntime, tryHandleSignRequest } = require('./signHttp');
  */
 function createHostServer(options = {}) {
   const env = options.env || process.env;
+  const { tryLoadSupabaseCreateClient } = require('./authHttp');
+  const loadedCreateClient = tryLoadSupabaseCreateClient();
   const runtime =
     options.authRuntime ||
     createAuthRuntime(env, {
       challengeStore: options.challengeStore,
       sessionStore: options.sessionStore,
       authPort: options.authPort,
+      createClient:
+        typeof options.createClient === 'function'
+          ? options.createClient
+          : loadedCreateClient || undefined,
       membershipStore: options.membershipStore,
       inviteStore: options.inviteStore,
       nowMs: options.nowMs,

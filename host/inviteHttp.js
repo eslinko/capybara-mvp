@@ -133,7 +133,7 @@ async function tryHandleInviteRequest(req, res, runtime) {
 
     const bearer = extractBearerToken(req);
 
-    const invite = createInvite({
+    const invite = await createInvite({
       inviteStore: runtime.inviteStore,
       membershipStore: runtime.membershipStore,
       dualInput: {
@@ -152,7 +152,7 @@ async function tryHandleInviteRequest(req, res, runtime) {
     });
 
     // AC-G3-04: open invite visible for later accept by `to` (feeds INV-05)
-    const openForTo = findOpenInviteByTo(
+    const openForTo = await findOpenInviteByTo(
       runtime.inviteStore,
       invite.to,
       invite.familyId,

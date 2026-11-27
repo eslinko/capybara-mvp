@@ -7,6 +7,7 @@ const { authError } = require('./errors');
  * Resolve membership for an authenticated session (userId + address).
  * Prefers userId matches; falls back to address; optional familyId filter.
  * May bind membership.userId when linking Supabase Auth user (empty slot).
+ * Async-aware: store methods may return Promises (Postgres adapters).
  *
  * @param {{
  *   membershipStore: import('../membership/MembershipStore'),
@@ -16,9 +17,9 @@ const { authError } = require('./errors');
  *   membershipId?: string,
  *   bindUserIdIfMissing?: boolean
  * }} input
- * @returns {object} membership copy
+ * @returns {Promise<object>} membership copy
  */
-function resolveMembershipForSession(input) {
+async function resolveMembershipForSession(input) {
   const store = input?.membershipStore;
   if (!store || typeof store.listMembershipsByUserId !== 'function') {
     throw authError('EAUTH_BAD_PAYLOAD', 'MembershipStore required');
@@ -43,7 +44,7 @@ function resolveMembershipForSession(input) {
     familyId ? list.filter((m) => m.familyId === familyId) : list;
 
   if (preferId) {
-    const preferred = store.getMembership(preferId);
+    const preferred = await Promise.resolve(store.getMembership(preferId));
     if (!preferred) {
       throw authError('EAUTH_MEMBERSHIP_UNRESOLVED', `Unknown membershipId: ${preferId}`);
     }
@@ -57,7 +58,7 @@ function resolveMembershipForSession(input) {
       );
     }
     if (!preferred.userId && bindIfMissing && typeof store.bindUserId === 'function') {
-      return store.bindUserId(preferred.id, userId);
+      return Promise.resolve(store.bindUserId(preferred.id, userId));
     }
     if (preferred.userId && preferred.userId !== userId) {
       throw authError('EAUTH_USERID_CONFLICT', 'membership.userId mismatches session');
@@ -65,9 +66,13 @@ function resolveMembershipForSession(input) {
     return preferred;
   }
 
-  let candidates = filterFamily(store.listMembershipsByUserId(userId));
+  let candidates = filterFamily(
+    await Promise.resolve(store.listMembershipsByUserId(userId)),
+  );
   if (candidates.length === 0) {
-    candidates = filterFamily(store.listMembershipsByAddress(address));
+    candidates = filterFamily(
+      await Promise.resolve(store.listMembershipsByAddress(address)),
+    );
   }
   if (candidates.length === 0) {
     throw authError(
@@ -80,7 +85,7 @@ function resolveMembershipForSession(input) {
   const chosen = (byAddress.length > 0 ? byAddress : candidates)[0];
 
   if (!chosen.userId && bindIfMissing && typeof store.bindUserId === 'function') {
-    return store.bindUserId(chosen.id, userId);
+    return Promise.resolve(store.bindUserId(chosen.id, userId));
   }
   if (chosen.userId && chosen.userId !== userId) {
     throw authError('EAUTH_USERID_CONFLICT', 'membership.userId mismatches session');

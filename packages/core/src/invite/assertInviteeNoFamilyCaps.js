@@ -8,6 +8,7 @@ const { inviteError } = require('./errors');
 /**
  * Pre-accept deny (AC-M06): open Invite alone ≠ Membership; invitee cannot
  * pass a family capability path until accept creates membership.
+ * Async-aware for Postgres stores (PGDUR-02).
  *
  * @param {{
  *   membershipStore: import('../membership/MembershipStore'),
@@ -15,9 +16,9 @@ const { inviteError } = require('./errors');
  *   familyId: string,
  *   capabilityId?: string
  * }} input
- * @returns {{ outcome: 'deny', reason: string }}
+ * @returns {Promise<{ outcome: 'deny', reason: string }>}
  */
-function assertInviteeNoFamilyCaps(input) {
+async function assertInviteeNoFamilyCaps(input) {
   const { membershipStore, familyId } = input;
   if (!membershipStore) {
     throw inviteError('EINVITE_BAD_PAYLOAD', 'membershipStore is required');
@@ -27,29 +28,30 @@ function assertInviteeNoFamilyCaps(input) {
   }
 
   const to = normalizeAddress(input.toAddress);
-  const memberships = membershipStore
-    .listMembershipsByAddress(to)
-    .filter((m) => m.familyId === familyId);
+  const memberships = (
+    await Promise.resolve(membershipStore.listMembershipsByAddress(to))
+  ).filter((m) => m.familyId === familyId);
 
   if (memberships.length > 0) {
-    // Already accepted / member — not a pre-accept path
     throw inviteError(
       'EINVITE_BAD_PAYLOAD',
       `Address ${to} already has membership in ${familyId}; not a pre-accept path`,
     );
   }
 
-  // Synthetic actor without membershipId — RoleGate must deny missing_actor /
-  // or we explicitly deny: no actor from open invite alone.
   const capabilityId =
     typeof input.capabilityId === 'string' && input.capabilityId.trim()
       ? input.capabilityId.trim()
       : CAPABILITIES.FAMILY_JOURNAL;
 
+  const familyMemberships = await Promise.resolve(
+    membershipStore.listMembershipsByFamily(familyId),
+  );
+
   const decision = decide({
     actor: null,
     capabilityId,
-    familyMemberships: membershipStore.listMembershipsByFamily(familyId),
+    familyMemberships,
   });
 
   if (decision.outcome !== 'deny') {

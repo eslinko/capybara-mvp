@@ -6,9 +6,7 @@ const { authError } = require('./errors');
 
 /**
  * Thin order helper: DualAuthGate **before** RoleGate → action.
- * Does **not** put dual-auth into roleGate/capabilities.js.
- *
- * CLI residual: ungated CLI coexistence is out of this helper — see dualAuthGate.js.
+ * Async-aware for Postgres membership adapters (PGDUR-02).
  *
  * @param {Parameters<typeof dualAuthGate>[0]} dualInput
  * @param {{
@@ -17,22 +15,20 @@ const { authError } = require('./errors');
  *   familyMemberships?: object[],
  *   clientClaimedRole?: string,
  *   actor?: object
- * }} roleInput — clientClaimedRole / actor ignored (AC-A03); actor from DualAuthGate
+ * }} roleInput
  * @param {() => any} fn
- * @returns {any}
+ * @returns {Promise<any>}
  */
-function runWithDualAuthThenRoleGate(dualInput, roleInput, fn) {
+async function runWithDualAuthThenRoleGate(dualInput, roleInput, fn) {
   if (typeof fn !== 'function') {
     throw authError('EAUTH_BAD_PAYLOAD', 'runWithDualAuthThenRoleGate requires a function');
   }
 
-  // DualAuth first — fail-closed unauth (AC-A01)
-  const allowed = dualAuthGate({
+  const allowed = await dualAuthGate({
     ...dualInput,
     clientClaimedRole: dualInput?.clientClaimedRole ?? roleInput?.clientClaimedRole,
   });
 
-  // RoleGate second — membership role on actor; ignore any client-claimed actor/role
   void roleInput?.actor;
   void roleInput?.clientClaimedRole;
 

@@ -5,13 +5,14 @@ const { inviteError } = require('./errors');
 
 /**
  * Lookup open Invite by `to` address (+ optional familyId). No opaque token.
+ * Async-aware for Postgres invite adapters (PGDUR-02).
  *
  * @param {import('./InviteStore')} inviteStore
  * @param {string} toAddress
  * @param {string} [familyId]
- * @returns {object | null}
+ * @returns {Promise<object | null>}
  */
-function findOpenInviteByTo(inviteStore, toAddress, familyId) {
+async function findOpenInviteByTo(inviteStore, toAddress, familyId) {
   if (!inviteStore || typeof inviteStore.listByTo !== 'function') {
     throw inviteError('EINVITE_BAD_PAYLOAD', 'inviteStore is required');
   }
@@ -20,9 +21,9 @@ function findOpenInviteByTo(inviteStore, toAddress, familyId) {
   }
 
   const to = normalizeAddress(toAddress);
-  let open = inviteStore
-    .listByTo(to)
-    .filter((r) => r.status === 'open');
+  let open = (await Promise.resolve(inviteStore.listByTo(to))).filter(
+    (r) => r.status === 'open',
+  );
 
   if (typeof familyId === 'string' && familyId.trim()) {
     const fid = familyId.trim();

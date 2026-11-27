@@ -19,6 +19,7 @@ function nextInviteId() {
 
 /**
  * Assert address↔role / open-invite conflicts before write (FR-M03 / ROLE).
+ * Async-aware for Postgres stores (PGDUR-02).
  *
  * @param {{
  *   membershipStore: import('../membership/MembershipStore'),
@@ -28,9 +29,11 @@ function nextInviteId() {
  *   role: 'parent' | 'child'
  * }} input
  */
-function assertNoAddressRoleConflict(input) {
+async function assertNoAddressRoleConflict(input) {
   const { membershipStore, inviteStore, familyId, to, role } = input;
-  const existingRole = membershipStore.getRoleForAddress(to);
+  const existingRole = await Promise.resolve(
+    membershipStore.getRoleForAddress(to),
+  );
   if (existingRole && existingRole !== role) {
     throw inviteError(
       'EINVITE_ADDRESS_ROLE_CONFLICT',
@@ -38,9 +41,9 @@ function assertNoAddressRoleConflict(input) {
     );
   }
 
-  const sameFamilyMemberships = membershipStore
-    .listMembershipsByAddress(to)
-    .filter((m) => m.familyId === familyId);
+  const sameFamilyMemberships = (
+    await Promise.resolve(membershipStore.listMembershipsByAddress(to))
+  ).filter((m) => m.familyId === familyId);
   if (sameFamilyMemberships.length > 0) {
     throw inviteError(
       'EINVITE_ADDRESS_ROLE_CONFLICT',
@@ -48,7 +51,9 @@ function assertNoAddressRoleConflict(input) {
     );
   }
 
-  const open = inviteStore.listOpenByToInFamily(familyId, to);
+  const open = await Promise.resolve(
+    inviteStore.listOpenByToInFamily(familyId, to),
+  );
   if (open.length > 0) {
     throw inviteError(
       'EINVITE_OPEN_CONFLICT',
@@ -59,12 +64,7 @@ function assertNoAddressRoleConflict(input) {
 
 /**
  * createInvite — DualAuthGate **before** RoleGate `family.members_settings` + bootstrapped family.
- * Does **not** add `family.invite_member`. Role frozen at write (AC-M07).
- *
- * Wire order matches AUTH-03: DualAuth → RoleGate → effect (no merge into capabilities.js).
- *
- * **CLI residual:** product gate AC claimed here under test; CLI that bypasses createInvite
- * is coexistence residual — see `INVITE_CLI_RESIDUAL_NOTE` in invite/index.js.
+ * Async-aware for Postgres adapters (PGDUR-02).
  *
  * @param {{
  *   inviteStore: import('./InviteStore'),
@@ -77,9 +77,9 @@ function assertNoAddressRoleConflict(input) {
  *   inviteId?: string,
  *   familyMemberships?: object[]
  * }} input
- * @returns {object} Invite row (status=open)
+ * @returns {Promise<object>} Invite row (status=open)
  */
-function createInvite(input) {
+async function createInvite(input) {
   if (!input?.inviteStore || typeof input.inviteStore.addInvite !== 'function') {
     throw inviteError('EINVITE_BAD_PAYLOAD', 'inviteStore is required');
   }
@@ -109,14 +109,13 @@ function createInvite(input) {
   const to = normalizeAddress(input.to);
 
   // DualAuth first — fail-closed unauth
-  const allowed = dualAuthGate({
+  const allowed = await dualAuthGate({
     ...input.dualInput,
     membershipStore: input.membershipStore,
     familyId,
   });
 
   if (allowed.membership.role !== 'parent') {
-    // RoleGate would also deny FAMILY_MEMBERS_SETTINGS for child; explicit for AC-M01.
     const err = new Error('RoleGate deny: parent_required_for_invite');
     err.code = 'EROLEGATE_DENY';
     throw err;
@@ -124,7 +123,9 @@ function createInvite(input) {
 
   const familyMemberships =
     input.familyMemberships ||
-    input.membershipStore.listMembershipsByFamily(familyId);
+    (await Promise.resolve(
+      input.membershipStore.listMembershipsByFamily(familyId),
+    ));
 
   return runWithRoleGate(
     {
@@ -132,21 +133,27 @@ function createInvite(input) {
       capabilityId: CAPABILITIES.FAMILY_MEMBERS_SETTINGS,
       familyMemberships,
     },
-    () => {
-      if (!input.membershipStore.getFamily(familyId)) {
+    async () => {
+      const family = await Promise.resolve(
+        input.membershipStore.getFamily(familyId),
+      );
+      if (!family) {
         throw inviteError(
           'EINVITE_UNKNOWN_FAMILY',
           `Unknown familyId: ${familyId}`,
         );
       }
-      if (!input.membershipStore.isBootstrapped(familyId)) {
+      const bootstrapped = await Promise.resolve(
+        input.membershipStore.isBootstrapped(familyId),
+      );
+      if (!bootstrapped) {
         throw inviteError(
           'EINVITE_NOT_BOOTSTRAPPED',
           `Family ${familyId} is not bootstrapped (AC-M05)`,
         );
       }
 
-      assertNoAddressRoleConflict({
+      await assertNoAddressRoleConflict({
         membershipStore: input.membershipStore,
         inviteStore: input.inviteStore,
         familyId,
@@ -159,15 +166,17 @@ function createInvite(input) {
           ? input.inviteId.trim()
           : nextInviteId();
 
-      return input.inviteStore.addInvite({
-        id: inviteId,
-        from: allowed.membership.address,
-        to,
-        role,
-        familyId,
-        displayName: input.displayName,
-        fromMembershipId: allowed.membership.id,
-      });
+      return Promise.resolve(
+        input.inviteStore.addInvite({
+          id: inviteId,
+          from: allowed.membership.address,
+          to,
+          role,
+          familyId,
+          displayName: input.displayName,
+          fromMembershipId: allowed.membership.id,
+        }),
+      );
     },
   );
 }

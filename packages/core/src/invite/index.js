@@ -12,6 +12,8 @@
  */
 
 const InviteStore = require('./InviteStore');
+const PostgresInviteStore = require('./PostgresInviteStore');
+const FailClosedInviteStore = require('./FailClosedInviteStore');
 const { createInvite, assertNoAddressRoleConflict, nextInviteId } = require('./createInvite');
 const { findOpenInviteByTo } = require('./findOpenInviteByTo');
 const {
@@ -25,6 +27,8 @@ const { INVITE_CLI_RESIDUAL_NOTE } = require('./cliResidual');
 
 module.exports = {
   InviteStore,
+  PostgresInviteStore,
+  FailClosedInviteStore,
   createInvite,
   assertNoAddressRoleConflict,
   nextInviteId,

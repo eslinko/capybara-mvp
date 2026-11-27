@@ -14,6 +14,7 @@ const { authError } = require('./errors');
  * do not claim CLI dual-auth Done.
  *
  * Client-claimed role is ignored (AC-A03); role comes from membership only.
+ * Async-aware for Postgres membership adapters (PGDUR-02).
  *
  * @typedef {{
  *   outcome: 'allow'|'deny',
@@ -36,9 +37,9 @@ const { authError } = require('./errors');
  *   nowMs?: number,
  *   bindUserIdIfMissing?: boolean
  * }} input
- * @returns {DualAuthDecision}
+ * @returns {Promise<DualAuthDecision>}
  */
-function decideDualAuth(input) {
+async function decideDualAuth(input) {
   // Explicitly ignore client role claim (AC-A03) — do not read into actor.
   void input?.clientClaimedRole;
 
@@ -70,7 +71,7 @@ function decideDualAuth(input) {
 
   let membership;
   try {
-    membership = resolveMembershipForSession({
+    membership = await resolveMembershipForSession({
       membershipStore: input.membershipStore,
       userId: session.userId,
       address: session.address,
@@ -105,10 +106,10 @@ function decideDualAuth(input) {
  * DualAuthGate API: allow → context; deny → throw EAUTH_DUAL_DENY.
  *
  * @param {Parameters<typeof decideDualAuth>[0]} input
- * @returns {{ actor: object, session: object, membership: object, userId: string }}
+ * @returns {Promise<{ actor: object, session: object, membership: object, userId: string }>}
  */
-function dualAuthGate(input) {
-  const decision = decideDualAuth(input);
+async function dualAuthGate(input) {
+  const decision = await decideDualAuth(input);
   if (decision.outcome !== 'allow') {
     throw authError(
       'EAUTH_DUAL_DENY',

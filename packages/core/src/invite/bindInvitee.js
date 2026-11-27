@@ -77,7 +77,9 @@ async function bindInviteeAndAccept(input) {
 
   let invite;
   if (typeof input.inviteId === 'string' && input.inviteId.trim()) {
-    invite = input.inviteStore.getInvite(input.inviteId.trim());
+    invite = await Promise.resolve(
+      input.inviteStore.getInvite(input.inviteId.trim()),
+    );
     if (!invite) {
       throw inviteError(
         'EINVITE_NOT_FOUND',
@@ -91,7 +93,7 @@ async function bindInviteeAndAccept(input) {
       );
     }
   } else {
-    invite = findOpenInviteByTo(
+    invite = await findOpenInviteByTo(
       input.inviteStore,
       input.proof.address,
       input.familyId,
@@ -128,15 +130,19 @@ async function bindInviteeAndAccept(input) {
       : nextMembershipId();
 
   // Role from Invite only (frozen) — never from client claim
-  const membership = input.membershipStore.addMembership({
-    id: membershipId,
-    familyId: invite.familyId,
-    role: invite.role,
-    address: invite.to,
-    userId: link.userId,
-  });
+  const membership = await Promise.resolve(
+    input.membershipStore.addMembership({
+      id: membershipId,
+      familyId: invite.familyId,
+      role: invite.role,
+      address: invite.to,
+      userId: link.userId,
+    }),
+  );
 
-  const accepted = input.inviteStore.markAccepted(invite.id);
+  const accepted = await Promise.resolve(
+    input.inviteStore.markAccepted(invite.id),
+  );
   const actor = buildActorContext(membership);
 
   return {
