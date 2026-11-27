@@ -263,6 +263,7 @@ describe('host sign page + personal_sign (WPROOF-01)', () => {
         expiresAtMs: issued.expiresAtMs,
       });
       const server = createHostServer({
+        enableSignHttp: true,
         env: AUTH_ENV,
         authRuntime: auth,
         signTokenStore: store,

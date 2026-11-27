@@ -93,6 +93,7 @@ describe('host signToken mint / result (WPROOF-02)', () => {
       const auth = createAuthRuntime(AUTH_ENV, { nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
       const store = new SignTokenStore();
       const noSecret = createHostServer({
+        enableSignHttp: true,
         env: { ...AUTH_ENV, CAPY_PUBLIC_BASE_URL: 'https://sign.test.example' },
         authRuntime: auth,
         signTokenStore: store,
@@ -109,6 +110,7 @@ describe('host signToken mint / result (WPROOF-02)', () => {
 
       const auth2 = createAuthRuntime(MINT_ENV, { nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
       const server = createHostServer({
+        enableSignHttp: true,
         env: MINT_ENV,
         authRuntime: auth2,
         signTokenStore: new SignTokenStore(),
@@ -136,6 +138,7 @@ describe('host signToken mint / result (WPROOF-02)', () => {
     it('503 without CAPY_PUBLIC_BASE_URL; mint returns unique url + domain/uri in challenge', async () => {
       const wallet = ethers.Wallet.createRandom();
       const noBase = createHostServer({
+        enableSignHttp: true,
         env: { ...AUTH_ENV, CAPY_SIGN_MINT_SECRET: 'mint-secret-test' },
         authRuntime: createAuthRuntime(AUTH_ENV, { nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() }),
         signTokenStore: new SignTokenStore(),
@@ -159,6 +162,7 @@ describe('host signToken mint / result (WPROOF-02)', () => {
       const auth = createAuthRuntime(MINT_ENV, { nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
       const store = new SignTokenStore();
       const server = createHostServer({
+        enableSignHttp: true,
         env: MINT_ENV,
         authRuntime: auth,
         signTokenStore: store,
@@ -208,6 +212,7 @@ describe('host signToken mint / result (WPROOF-02)', () => {
       const auth = createAuthRuntime(MINT_ENV, { nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
       const store = new SignTokenStore();
       const server = createHostServer({
+        enableSignHttp: true,
         env: MINT_ENV,
         authRuntime: auth,
         signTokenStore: store,
@@ -265,6 +270,7 @@ describe('host signToken mint / result (WPROOF-02)', () => {
       const auth = createAuthRuntime(MINT_ENV, { nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
       const store = new SignTokenStore();
       const server = createHostServer({
+        enableSignHttp: true,
         env: MINT_ENV,
         authRuntime: auth,
         signTokenStore: store,
@@ -312,6 +318,7 @@ describe('host signToken mint / result (WPROOF-02)', () => {
       const auth = createAuthRuntime(MINT_ENV, { nowMs: 1_700_000_000_000, authPort: createMemorySupabaseAuthDouble() });
       const store = new SignTokenStore();
       const server = createHostServer({
+        enableSignHttp: true,
         env: MINT_ENV,
         authRuntime: auth,
         signTokenStore: store,
@@ -357,6 +364,7 @@ describe('host signToken mint / result (WPROOF-02)', () => {
       const store = new SignTokenStore();
       store.setFailNextWriteOk(true);
       const server = createHostServer({
+        enableSignHttp: true,
         env: MINT_ENV,
         authRuntime: auth,
         signTokenStore: store,
@@ -392,6 +400,7 @@ describe('host signToken mint / result (WPROOF-02)', () => {
 
         // past expiresAt → 4xx (POC fail-closed path)
         const expiredServer = createHostServer({
+        enableSignHttp: true,
           env: MINT_ENV,
           authRuntime: auth,
           signTokenStore: store,

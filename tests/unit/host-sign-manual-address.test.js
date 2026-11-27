@@ -98,6 +98,7 @@ describe('host sign manual address entry (WPROOF-07 / G5)', () => {
     });
     const store = new SignTokenStore();
     const server = createHostServer({
+        enableSignHttp: true,
       env: MINT_ENV,
       authRuntime: auth,
       signTokenStore: store,
@@ -142,6 +143,7 @@ describe('host sign manual address entry (WPROOF-07 / G5)', () => {
     });
     const store = new SignTokenStore();
     const server = createHostServer({
+        enableSignHttp: true,
       env: MINT_ENV,
       authRuntime: auth,
       signTokenStore: store,
@@ -231,6 +233,7 @@ describe('host sign manual address entry (WPROOF-07 / G5)', () => {
     });
     const store = new SignTokenStore();
     const server = createHostServer({
+        enableSignHttp: true,
       env: MINT_ENV,
       authRuntime: auth,
       signTokenStore: store,
