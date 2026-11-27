@@ -7,12 +7,14 @@ const { tryHandleInviteRequest } = require('./inviteHttp');
 const { tryHandleCapabilityProbe } = require('./capabilityProbe');
 const { tryHandleConnectorLaunchRequest } = require('./connectorLaunch');
 const { createSignRuntime, tryHandleSignRequest } = require('./signHttp');
+const { tryHandleMcpRequest, isMcpEnabled } = require('./mcp/mcpHttp');
 
 /**
  * Create thin Node `http` host server (no Express).
  *
  * Composes GET /health + `/auth/*` + `POST /auth/invite` (INV-04) +
- * `/v1/capabilities/profile.self` + `GET /connector/launch` (WPROOF-10).
+ * `/v1/capabilities/profile.self` + `GET /connector/launch` (WPROOF-10) +
+ * optional `/mcp` Streamable HTTP/SSE when CAPY_MCP_ENABLED=1 (MCP-01 Soft≠Live).
  *
  * Experimental `/sign/*` (WPROOF-01…09 residual) is **retired** from default
  * compose (option A). Opt-in only via `enableSignHttp: true` for historical
@@ -35,6 +37,7 @@ const { createSignRuntime, tryHandleSignRequest } = require('./signHttp');
  */
 function createHostServer(options = {}) {
   const env = options.env || process.env;
+  const mcpEnabled = isMcpEnabled(env);
   const { tryLoadSupabaseCreateClient } = require('./authHttp');
   const loadedCreateClient = tryLoadSupabaseCreateClient();
   const runtime =
@@ -94,6 +97,14 @@ function createHostServer(options = {}) {
       .then((handled) => {
         if (handled) return true;
         return tryHandleCapabilityProbe(req, res, runtime);
+      })
+      .then((handled) => {
+        if (handled) return true;
+        // MCP-01: mount only when CAPY_MCP_ENABLED=1; else fail-closed (not in chain).
+        if (mcpEnabled) {
+          return tryHandleMcpRequest(req, res);
+        }
+        return false;
       })
       .then((handled) => {
         if (!handled) {

@@ -7,6 +7,8 @@
  * Phase 2: same process mounts `/auth/*` (EDGE-01/02) + `POST /auth/invite` (INV-04) +
  * DualAuthGate→RoleGate capability probe `/v1/capabilities/profile.self` (EDGE-03).
  * Live Supabase port = REQ-09 residual.
+ * MCP-01 Soft: `/mcp` Streamable HTTP/SSE only when CAPY_MCP_ENABLED=1 (else fail-closed).
+ * Soft≠Live · tools/DualAuth OOS (MCP-02+) · ≠ invent Live Pass / Phase 4 Done.
  *
  * Membership/Invite/verified proof compose Soft≠Live (PGDUR-02/03 · EDGE-13):
  *   postgres — Auth config + createClient Present (production Soft primary)
