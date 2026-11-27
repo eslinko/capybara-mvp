@@ -100,9 +100,10 @@ function createHostServer(options = {}) {
       })
       .then((handled) => {
         if (handled) return true;
-        // MCP-01: mount only when CAPY_MCP_ENABLED=1; else fail-closed (not in chain).
+        // MCP-01/02: mount only when CAPY_MCP_ENABLED=1; else fail-closed (not in chain).
+        // Soft DualAuth→parent→RoleGate on tools (MCP-02); Action invoke OOS MCP-03+.
         if (mcpEnabled) {
-          return tryHandleMcpRequest(req, res);
+          return tryHandleMcpRequest(req, res, runtime);
         }
         return false;
       })
