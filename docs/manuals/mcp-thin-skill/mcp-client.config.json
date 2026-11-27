@@ -1,0 +1,25 @@
+{
+  "$schema_note": "Soft skeleton Soft≠Live — replace HOST; never put private keys here",
+  "mcpServers": {
+    "capybara-family": {
+      "transport": "http",
+      "url": "https://<HOST>/mcp",
+      "path_lock": "/mcp",
+      "headers": {
+        "Authorization": "Bearer ${CAPY_MCP_BEARER_SECRET}"
+      },
+      "secrets": {
+        "CAPY_MCP_BEARER_SECRET": {
+          "description": "Ephemeral Bearer from POST /auth/verify Soft. Paste into Skill secret slot. Never a private key.",
+          "required": true,
+          "kind": "bearer"
+        }
+      },
+      "notes": [
+        "Privilege none in Skill Soft — DualAuth + parent RoleGate on server (AC-M08)",
+        "CAPY_MCP_ENABLED=1 required on host Soft (MCP-01)",
+        "Soft≠Live: config Soft ≠ invent Live Pass / Phase 4 Done"
+      ]
+    }
+  }
+}
