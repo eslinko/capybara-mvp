@@ -22,6 +22,9 @@
  * (same supabase-js service client; no invent pg/DATABASE_URL). Inject memory
  * doubles via opts (AC-P08). Missing/invalid env → fail-closed stores (AC-P06),
  * not silent empty RAM SoT. Soft≠Live: adapters ≠ invent REQ-12 Done / Live Pass.
+ * PGDUR-03: after successful `/auth/verify`, persist AddressProof →
+ * `verified_address_proofs` (familyId optional). ChallengeStore stays ephemeral.
+ * Soft≠Live: unit ≠ invent Live Pass (→ PGDUR-05).
  * INV-05: after valid proof, open Invite for `to` → core `bindInviteeAndAccept`
  * (role from Invite; client-claimed role ignored). No open invite → Auth-only.
  *
@@ -43,6 +46,8 @@ const {
   validateBearer,
   logoutBearer,
   bootstrapPoolAndFounder,
+  VerifiedAddressProofStore,
+  PostgresVerifiedAddressProofStore,
   authError,
 } = require('../packages/core/src/auth');
 const {
@@ -390,16 +395,25 @@ function sanitizePublicAuthMessage(message, config) {
  * @param {{
  *   membershipStore?: object,
  *   inviteStore?: object,
+ *   verifiedProofStore?: object,
  *   createClient?: Function,
  *   admin?: object
  * }} opts
- * @returns {{ membershipStore: object, inviteStore: object }}
+ * @returns {{
+ *   membershipStore: object,
+ *   inviteStore: object,
+ *   verifiedProofStore: object
+ * }}
  */
 function resolveMembershipInviteStores(config, opts = {}) {
+  const memoryProof =
+    opts.verifiedProofStore || new VerifiedAddressProofStore();
+
   if (opts.membershipStore || opts.inviteStore) {
     return {
       membershipStore: opts.membershipStore || new MembershipStore(),
       inviteStore: opts.inviteStore || new InviteStore(),
+      verifiedProofStore: memoryProof,
     };
   }
   if (!config) {
@@ -407,6 +421,7 @@ function resolveMembershipInviteStores(config, opts = {}) {
     return {
       membershipStore: new FailClosedMembershipStore(reason),
       inviteStore: new FailClosedInviteStore(reason),
+      verifiedProofStore: memoryProof,
     };
   }
   // Postgres only when createClient provided (host compose / inject).
@@ -418,6 +433,7 @@ function resolveMembershipInviteStores(config, opts = {}) {
     return {
       membershipStore: new FailClosedMembershipStore(reason),
       inviteStore: new FailClosedInviteStore(reason),
+      verifiedProofStore: memoryProof,
     };
   }
   try {
@@ -429,6 +445,9 @@ function resolveMembershipInviteStores(config, opts = {}) {
     return {
       membershipStore: new PostgresMembershipStore({ client }),
       inviteStore: new PostgresInviteStore({ client }),
+      verifiedProofStore:
+        opts.verifiedProofStore ||
+        new PostgresVerifiedAddressProofStore({ client }),
     };
   } catch (err) {
     const reason =
@@ -437,6 +456,7 @@ function resolveMembershipInviteStores(config, opts = {}) {
     return {
       membershipStore: new FailClosedMembershipStore(reason),
       inviteStore: new FailClosedInviteStore(reason),
+      verifiedProofStore: memoryProof,
     };
   }
 }
@@ -451,6 +471,7 @@ function resolveMembershipInviteStores(config, opts = {}) {
  *   createClient?: Function,
  *   membershipStore?: import('../packages/core/src/membership/MembershipStore'),
  *   inviteStore?: import('../packages/core/src/invite/InviteStore'),
+ *   verifiedProofStore?: object,
  *   keyMap?: typeof PRODUCTION_AUTH_KEY_MAP,
  *   nowMs?: number
  * }} [opts]
@@ -475,6 +496,7 @@ function createAuthRuntime(env = process.env, opts = {}) {
     authPort: resolveAuthPort(config, opts),
     membershipStore: stores.membershipStore,
     inviteStore: stores.inviteStore,
+    verifiedProofStore: stores.verifiedProofStore,
     nowMs: opts.nowMs,
   };
 }
@@ -785,6 +807,23 @@ async function tryHandleAuthRequest(req, res, runtime) {
         signature,
         { nowMs: runtime.nowMs },
       );
+
+      // PGDUR-03 / AC-P03: persist verified proof; familyId optional (null pre-membership).
+      // Challenge already consumed — ChallengeStore stays ephemeral (REQ 1A).
+      if (
+        runtime.verifiedProofStore &&
+        typeof runtime.verifiedProofStore.addVerifiedProof === 'function'
+      ) {
+        await Promise.resolve(
+          runtime.verifiedProofStore.addVerifiedProof({
+            address: proof.address,
+            challengeId: proof.challengeId,
+            verifiedAt: proof.verifiedAt,
+            verifiedAtMs: proof.verifiedAtMs,
+            familyId: familyId || null,
+          }),
+        );
+      }
 
       let link;
       let inviteAccepted = false;

@@ -13,6 +13,10 @@ const { ChallengeStore } = require('./ChallengeStore');
 const { buildSiweClassMessage } = require('./buildSiweClassMessage');
 const { issueChallenge, DEFAULT_TTL_MS } = require('./issueChallenge');
 const { verifyAddressProof } = require('./verifyAddressProof');
+const { VerifiedAddressProofStore } = require('./VerifiedAddressProofStore');
+const {
+  PostgresVerifiedAddressProofStore,
+} = require('./PostgresVerifiedAddressProofStore');
 const { authError } = require('./errors');
 const {
   requireAuthEnvClasses,
@@ -47,6 +51,8 @@ module.exports = {
   issueChallenge,
   DEFAULT_TTL_MS,
   verifyAddressProof,
+  VerifiedAddressProofStore,
+  PostgresVerifiedAddressProofStore,
   authError,
   requireAuthEnvClasses,
   loadAuthEnvConfig,
