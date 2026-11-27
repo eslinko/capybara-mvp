@@ -25,6 +25,9 @@
  * PGDUR-03: after successful `/auth/verify`, persist AddressProof →
  * `verified_address_proofs` (familyId optional). ChallengeStore stays ephemeral.
  * Soft≠Live: unit ≠ invent Live Pass (→ PGDUR-05).
+ * AUTH-07 Soft≠Live: object-path `poolProof`/`parentProof` on `/auth/bootstrap`
+ * must prove durable verifiedProofStore row (`listByChallengeId` + address);
+ * forge `{address}`-only → reject. Soft unit ≠ invent Live Pass / REQ-04 Done.
  * INV-05: after valid proof, open Invite for `to` → core `bindInviteeAndAccept`
  * (role from Invite; client-claimed role ignored). No open invite → Auth-only.
  *
@@ -46,6 +49,7 @@ const {
   validateBearer,
   logoutBearer,
   bootstrapPoolAndFounder,
+  assertVerifiedProofRecorded,
   VerifiedAddressProofStore,
   PostgresVerifiedAddressProofStore,
   authError,
@@ -535,18 +539,24 @@ function resolveBootstrapAddresses(env, body) {
 
 /**
  * Accept AddressProof object or challengeId+signature pair (reuse EDGE-01 challenge store).
+ * AUTH-07: object path must prove prior successful `/auth/verify` via verifiedProofStore.
  *
  * @param {ReturnType<typeof createAuthRuntime>} runtime
  * @param {Record<string, unknown>} body
  * @param {'pool' | 'parent'} kind
- * @returns {object}
+ * @returns {Promise<object>}
  */
-function resolveBootstrapProof(runtime, body, kind) {
+async function resolveBootstrapProof(runtime, body, kind) {
   const proofKey = kind === 'pool' ? 'poolProof' : 'parentProof';
   const challengeKey = kind === 'pool' ? 'poolChallengeId' : 'parentChallengeId';
   const signatureKey = kind === 'pool' ? 'poolSignature' : 'parentSignature';
   const proof = body[proofKey];
   if (proof && typeof proof === 'object' && !Array.isArray(proof)) {
+    await assertVerifiedProofRecorded(
+      runtime.verifiedProofStore,
+      proof,
+      proofKey,
+    );
     return proof;
   }
   const challengeId =
@@ -655,7 +665,8 @@ function mapAuthError(err) {
   }
   if (
     code === 'EAUTH_BOOTSTRAP_MISSING_PROOF' ||
-    code === 'EAUTH_BOOTSTRAP_PROOF_MISMATCH'
+    code === 'EAUTH_BOOTSTRAP_PROOF_MISMATCH' ||
+    code === 'EAUTH_BOOTSTRAP_UNVERIFIED'
   ) {
     return { status: 400, code, message };
   }
@@ -922,8 +933,8 @@ async function tryHandleAuthRequest(req, res, runtime) {
           'poolAddress/parentAddress required (body or CAPY_POOL_ADDRESS/PARENT_ADDRESS)',
         );
       }
-      const poolProof = resolveBootstrapProof(runtime, body, 'pool');
-      const parentProof = resolveBootstrapProof(runtime, body, 'parent');
+      const poolProof = await resolveBootstrapProof(runtime, body, 'pool');
+      const parentProof = await resolveBootstrapProof(runtime, body, 'parent');
       const familyId =
         typeof body.familyId === 'string' && body.familyId.trim()
           ? body.familyId.trim()

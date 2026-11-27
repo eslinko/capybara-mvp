@@ -35,6 +35,85 @@ function assertProofMatchesAddress(proof, expectedAddress, label) {
 }
 
 /**
+ * AUTH-07 Soft≠Live: object-path bootstrap must prove prior successful
+ * `/auth/verify` via verifiedProofStore (`listByChallengeId` + address match).
+ * Forge `{ address }`–only / invented challengeId without durable row → reject.
+ * Soft unit ≠ invent Live Pass / REQ-04 Accepted.
+ *
+ * @param {{ listByChallengeId: Function } | null | undefined} verifiedProofStore
+ * @param {object} proof
+ * @param {string} label
+ * @returns {Promise<object>} matching verified row
+ */
+async function assertVerifiedProofRecorded(verifiedProofStore, proof, label) {
+  if (
+    !verifiedProofStore ||
+    typeof verifiedProofStore.listByChallengeId !== 'function'
+  ) {
+    throw authError(
+      'EAUTH_BOOTSTRAP_UNVERIFIED',
+      `${label} verifiedProofStore required for object-path bootstrap (AUTH-07)`,
+    );
+  }
+  if (!proof || typeof proof !== 'object' || Array.isArray(proof)) {
+    throw authError(
+      'EAUTH_BOOTSTRAP_MISSING_PROOF',
+      `${label} AddressProof object required`,
+    );
+  }
+  const challengeId =
+    typeof proof.challengeId === 'string' ? proof.challengeId.trim() : '';
+  if (!challengeId) {
+    throw authError(
+      'EAUTH_BOOTSTRAP_UNVERIFIED',
+      `${label} proof missing challengeId — durable verified row required (AUTH-07)`,
+    );
+  }
+  if (typeof proof.address !== 'string' || !proof.address.trim()) {
+    throw authError(
+      'EAUTH_BOOTSTRAP_MISSING_PROOF',
+      `${label} proof address required`,
+    );
+  }
+  let proofAddr;
+  try {
+    proofAddr = normalizeAddress(proof.address);
+  } catch {
+    throw authError(
+      'EAUTH_BOOTSTRAP_PROOF_MISMATCH',
+      `${label} proof address invalid`,
+    );
+  }
+
+  const rows = await Promise.resolve(
+    verifiedProofStore.listByChallengeId(challengeId),
+  );
+  const list = Array.isArray(rows) ? rows : [];
+  if (list.length === 0) {
+    throw authError(
+      'EAUTH_BOOTSTRAP_UNVERIFIED',
+      `${label} no durable verified row for challengeId (AUTH-07 forge reject)`,
+    );
+  }
+
+  const match = list.find((row) => {
+    if (!row || typeof row.address !== 'string') return false;
+    try {
+      return normalizeAddress(row.address) === proofAddr;
+    } catch {
+      return false;
+    }
+  });
+  if (!match) {
+    throw authError(
+      'EAUTH_BOOTSTRAP_PROOF_MISMATCH',
+      `${label} proof address mismatch vs verified store row (AUTH-07)`,
+    );
+  }
+  return { ...match };
+}
+
+/**
  * Bootstrap family: signed pool + founder parent proofs (AC-A05/A06).
  * Host-agnostic; Railway live deploy = residual.
  *
@@ -143,4 +222,5 @@ async function bootstrapPoolAndFounder(input, opts = {}) {
 module.exports = {
   bootstrapPoolAndFounder,
   assertProofMatchesAddress,
+  assertVerifiedProofRecorded,
 };

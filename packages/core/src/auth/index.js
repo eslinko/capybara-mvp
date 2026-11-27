@@ -43,6 +43,7 @@ const { assertBootstrapInput } = require('./assertBootstrapInput');
 const {
   bootstrapPoolAndFounder,
   assertProofMatchesAddress,
+  assertVerifiedProofRecorded,
 } = require('./bootstrapPoolAndFounder');
 
 module.exports = {
@@ -73,4 +74,5 @@ module.exports = {
   assertBootstrapInput,
   bootstrapPoolAndFounder,
   assertProofMatchesAddress,
+  assertVerifiedProofRecorded,
 };
