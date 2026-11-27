@@ -1,8 +1,14 @@
 'use strict';
 
 /**
- * Identity HTTP edge (EDGE-01/02) — `/auth/*` on the same host process as `/health`.
+ * Identity HTTP edge (EDGE-01/02/11) — `/auth/*` on the same host process as `/health`.
  * U1: this module · U2: /auth/{challenge,verify,session,logout,bootstrap}
+ *
+ * EDGE-11 / AC-I08: Connector CORS allowlist on `/auth/challenge|verify` only —
+ * local `http://127.0.0.1:8080` / `http://localhost:8080` + optional
+ * `CAPY_CONNECTOR_CORS_ORIGINS` (comma-separated exact Origins, e.g. Railway HTTPS).
+ * Echo allowed Origin (not `*`) · OPTIONS preflight · unknown Origin fail-closed.
+ * Soft≠Live: unit green ≠ invent Live Connector Pass. No body-contract invent.
  *
  * Production keyMap (arch-08): SUPABASE_URL, SUPABASE_SECRET_KEY
  * (+ optional SUPABASE_SERVICE_ROLE_KEY alias), CAPY_BEARER_SECRET.
@@ -51,6 +57,86 @@ const PRODUCTION_AUTH_KEY_MAP = {
   supabaseKey: 'SUPABASE_SECRET_KEY',
   bearerSecret: 'CAPY_BEARER_SECRET',
 };
+
+/** Default Connector signing Origins (PAUTH-09 §3 / arch-08/04 §2) — exact match only. */
+const DEFAULT_CONNECTOR_CORS_ORIGINS = Object.freeze([
+  'http://127.0.0.1:8080',
+  'http://localhost:8080',
+]);
+
+/**
+ * Resolve Connector CORS allowlist: defaults + optional `CAPY_CONNECTOR_CORS_ORIGINS`.
+ * Never includes `*`.
+ *
+ * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
+ * @returns {string[]}
+ */
+function resolveConnectorCorsAllowlist(env = process.env) {
+  const extrasRaw =
+    env && typeof env.CAPY_CONNECTOR_CORS_ORIGINS === 'string'
+      ? env.CAPY_CONNECTOR_CORS_ORIGINS
+      : '';
+  const extras = extrasRaw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .filter((o) => o !== '*');
+  const seen = new Set();
+  /** @type {string[]} */
+  const out = [];
+  for (const origin of [...DEFAULT_CONNECTOR_CORS_ORIGINS, ...extras]) {
+    if (!seen.has(origin)) {
+      seen.add(origin);
+      out.push(origin);
+    }
+  }
+  return out;
+}
+
+/**
+ * @param {string} path normalized (no trailing slash)
+ * @returns {boolean}
+ */
+function isConnectorCorsAuthPath(path) {
+  return path === '/auth/challenge' || path === '/auth/verify';
+}
+
+/**
+ * Exact-match allowlist. Unknown / missing Origin → null (fail-closed, no `*`).
+ *
+ * @param {import('http').IncomingMessage} req
+ * @param {string[]} allowlist
+ * @returns {string | null}
+ */
+function resolveAllowedConnectorOrigin(req, allowlist) {
+  const raw = req && req.headers ? req.headers.origin : undefined;
+  if (typeof raw !== 'string' || !raw.trim()) {
+    return null;
+  }
+  const origin = raw.trim();
+  if (origin === '*' || !allowlist.includes(origin)) {
+    return null;
+  }
+  return origin;
+}
+
+/**
+ * CORS response headers for allowed Origin only (never `*`).
+ *
+ * @param {string | null} allowedOrigin
+ * @returns {Record<string, string>}
+ */
+function connectorCorsResponseHeaders(allowedOrigin) {
+  if (!allowedOrigin) {
+    return {};
+  }
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Accept',
+    Vary: 'Origin',
+  };
+}
 
 /**
  * Apply optional SUPABASE_SERVICE_ROLE_KEY → supabaseKey alias (arch DP5-A).
@@ -322,11 +408,18 @@ function resolveBootstrapProof(runtime, body, kind) {
  * @param {number} status
  * @param {Record<string, unknown>} payload
  */
-function writeJson(res, status, payload) {
+/**
+ * @param {import('http').ServerResponse} res
+ * @param {number} status
+ * @param {unknown} payload
+ * @param {Record<string, string>} [extraHeaders]
+ */
+function writeJson(res, status, payload, extraHeaders) {
   const body = JSON.stringify(payload);
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Content-Length': Buffer.byteLength(body),
+    ...(extraHeaders || {}),
   });
   res.end(body);
 }
@@ -475,6 +568,36 @@ async function tryHandleAuthRequest(req, res, runtime) {
 
   const path = pathname.replace(/\/$/, '') || pathname;
 
+  /** EDGE-11: CORS only on challenge/verify — Soft≠Live. */
+  const corsPath = isConnectorCorsAuthPath(path);
+  const corsAllowlist = corsPath
+    ? resolveConnectorCorsAllowlist(runtime.env)
+    : [];
+  const allowedOrigin = corsPath
+    ? resolveAllowedConnectorOrigin(req, corsAllowlist)
+    : null;
+  const corsHeaders = connectorCorsResponseHeaders(allowedOrigin);
+
+  if (corsPath && req.method === 'OPTIONS') {
+    // Preflight: 204 with methods/headers; ACAO only when Origin allowlisted.
+    res.writeHead(204, {
+      'Content-Length': 0,
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Accept',
+      Vary: 'Origin',
+      ...corsHeaders,
+    });
+    res.end();
+    return true;
+  }
+
+  /**
+   * @param {number} status
+   * @param {unknown} payload
+   */
+  const writeAuthJson = (status, payload) =>
+    writeJson(res, status, payload, corsPath ? corsHeaders : undefined);
+
   try {
     if (path === '/auth/challenge' && req.method === 'POST') {
       const config = requireRuntimeConfig(runtime);
@@ -483,7 +606,7 @@ async function tryHandleAuthRequest(req, res, runtime) {
       const issued = issueChallenge(runtime.challenges, body.address, {
         nowMs: runtime.nowMs,
       });
-      writeJson(res, 200, {
+      writeAuthJson(200, {
         ok: true,
         challengeId: issued.challengeId,
         address: issued.address,
@@ -585,7 +708,7 @@ async function tryHandleAuthRequest(req, res, runtime) {
           // residual: host log only — login already done
         }
       }
-      writeJson(res, 200, {
+      writeAuthJson(200, {
         ok: true,
         token: session.token,
         tokenType: 'Bearer',
@@ -632,7 +755,7 @@ async function tryHandleAuthRequest(req, res, runtime) {
         },
         { nowMs: runtime.nowMs },
       );
-      writeJson(res, 200, {
+      writeAuthJson(200, {
         ok: true,
         familyId: result.family.id,
         poolAddress: result.poolAddress,
@@ -652,7 +775,7 @@ async function tryHandleAuthRequest(req, res, runtime) {
       const session = validateBearer(runtime.sessions, token, config, {
         nowMs: runtime.nowMs,
       });
-      writeJson(res, 200, {
+      writeAuthJson(200, {
         ok: true,
         userId: session.userId,
         address: session.address,
@@ -666,11 +789,11 @@ async function tryHandleAuthRequest(req, res, runtime) {
       void config;
       const token = extractBearerToken(req);
       logoutBearer(runtime.sessions, token);
-      writeJson(res, 200, { ok: true, loggedOut: true });
+      writeAuthJson(200, { ok: true, loggedOut: true });
       return true;
     }
 
-    writeJson(res, 405, { ok: false, error: 'method_not_allowed' });
+    writeAuthJson(405, { ok: false, error: 'method_not_allowed' });
     return true;
   } catch (err) {
     const mapped = mapAuthError(err);
@@ -684,7 +807,7 @@ async function tryHandleAuthRequest(req, res, runtime) {
         `${req.method || 'UNKNOWN'} ${path} ${mapped.status} ${mapped.code} ${publicMessage} ${presence.line}`,
       );
     }
-    writeJson(res, mapped.status, {
+    writeAuthJson(mapped.status, {
       ok: false,
       error: mapped.code,
       message: publicMessage,
@@ -695,6 +818,7 @@ async function tryHandleAuthRequest(req, res, runtime) {
 
 module.exports = {
   PRODUCTION_AUTH_KEY_MAP,
+  DEFAULT_CONNECTOR_CORS_ORIGINS,
   withSupabaseKeyAlias,
   loadHostAuthEnvConfig,
   describeAuthEnvPresence,
@@ -704,6 +828,10 @@ module.exports = {
   requireRuntimeConfig,
   resolveBootstrapAddresses,
   resolveBootstrapProof,
+  resolveConnectorCorsAllowlist,
+  isConnectorCorsAuthPath,
+  resolveAllowedConnectorOrigin,
+  connectorCorsResponseHeaders,
   tryHandleAuthRequest,
   isAuthPath,
   extractBearerToken,
