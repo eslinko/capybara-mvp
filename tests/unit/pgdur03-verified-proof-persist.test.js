@@ -232,7 +232,10 @@ describe('PGDUR-03 verified AddressProof persist Soft≠Live', () => {
     expect(honesty).to.include('PGDUR-05');
   });
 
-  it('resolveMembershipInviteStores still returns fail-closed membership when no createClient', () => {
+  it('resolveMembershipInviteStores fail-closed when no createClient (EDGE-13 FailClosed proof)', () => {
+    const {
+      FailClosedVerifiedAddressProofStore,
+    } = require('../../packages/core/src/auth');
     const stores = resolveMembershipInviteStores(
       {
         supabaseUrl: FIXTURE_ENV.SUPABASE_URL,
@@ -241,6 +244,8 @@ describe('PGDUR-03 verified AddressProof persist Soft≠Live', () => {
       },
       {},
     );
-    expect(stores.verifiedProofStore).to.be.instanceOf(VerifiedAddressProofStore);
+    expect(stores.verifiedProofStore).to.be.instanceOf(
+      FailClosedVerifiedAddressProofStore,
+    );
   });
 });
