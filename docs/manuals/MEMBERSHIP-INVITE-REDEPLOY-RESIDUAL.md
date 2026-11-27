@@ -10,7 +10,9 @@
 > Product target: [`../requirements/12-postgres-family-identity-and-journals.md`](../requirements/12-postgres-family-identity-and-journals.md) (REQ-12 — Accept only after operator live Pass).  
 > Do **not** invent live multi-step onboarding Pass across redeploys.  
 > `npm test` / docs alone ≠ durability Done (AC-G8-04 · AC-P08).  
-> PGDUR-05 evidence: [`evidence/pgdur-live-redeploy-journal-residual.md`](evidence/pgdur-live-redeploy-journal-residual.md) · checklist [`PGDUR-LIVE-REDEPLOY-OPERATOR-CHECKLIST.md`](PGDUR-LIVE-REDEPLOY-OPERATOR-CHECKLIST.md).
+> PGDUR-05 evidence: [`evidence/pgdur-live-redeploy-journal-residual.md`](evidence/pgdur-live-redeploy-journal-residual.md) · checklist [`PGDUR-LIVE-REDEPLOY-OPERATOR-CHECKLIST.md`](PGDUR-LIVE-REDEPLOY-OPERATOR-CHECKLIST.md).  
+> **EDGE-13 Soft Present Soft≠Live:** host RAM honesty — production = Postgres \| FailClosed (FailClosed proof not unlabeled Memory); RAM = inject/unit only — [`STORY-SCR-CAPY-EDGE-13`](../tasks/backlog-stories/capybara-identity-http-edge/STORY-SCR-CAPY-EDGE-13-host-ram-store-honesty-cleanup.md). Soft adapters Present · **Live Residual continued** · tip no flip EDGE-08 Done · ≠ invent Live Pass.  
+> **PGDUR-06 Soft Present Soft≠Live:** cast-path assert / `store_kind` — [`STORY-SCR-CAPY-PGDUR-06`](../tasks/backlog-stories/capybara-postgres-family-identity-and-journals/STORY-SCR-CAPY-PGDUR-06-durable-cast-invite-path-assert.md).
 
 ---
 
