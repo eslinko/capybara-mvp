@@ -4,10 +4,10 @@
 Источник: Target ROADMAP Phase 2 · REQ-04 live residual · REQ-07 host Done · arch-04 host-primary  
 Status: Draft — tech-arch Present (`architecture/08-…`); HTTP auth edge implement **Absent**  
 Profile: `capybara` · focus `capybara/`  
-Related: [`../tasks/backlog-stories/ROADMAP.md`](../tasks/backlog-stories/ROADMAP.md) Phase 2 · implement [`../tasks/backlog-stories/capybara-identity-http-edge/INDEX.md`](../tasks/backlog-stories/capybara-identity-http-edge/INDEX.md) (EDGE-01…04) · parent contract [`04-dual-auth-wallet-supabase-user.md`](04-dual-auth-wallet-supabase-user.md) · host [`07-railway-family-host.md`](07-railway-family-host.md) · live Supabase [`09-live-supabase-auth-port.md`](09-live-supabase-auth-port.md) · wallet client [`10-wallet-address-proof-client.md`](10-wallet-address-proof-client.md) · roles [`03-family-roles-and-capability-matrix.md`](03-family-roles-and-capability-matrix.md) · catalog [`06-role-scoped-capability-catalog.md`](06-role-scoped-capability-catalog.md) · auth core [`../../packages/core/src/auth/`](../../packages/core/src/auth/) · host [`../../host/`](../../host/)  
-Architecture: [`../architecture/08-identity-http-edge-on-host/00-overview.md`](../architecture/08-identity-http-edge-on-host/00-overview.md) · siblings [`01`](../architecture/08-identity-http-edge-on-host/01-components-and-http-surface.md) · [`02`](../architecture/08-identity-http-edge-on-host/02-bootstrap-session-and-capability-probe.md) · [`03`](../architecture/08-identity-http-edge-on-host/03-env-verify-coexistence-residual.md) · prior [`../architecture/04-dual-auth-wallet-supabase-user/00-overview.md`](../architecture/04-dual-auth-wallet-supabase-user/00-overview.md) · [`../architecture/07-railway-family-host/00-overview.md`](../architecture/07-railway-family-host/00-overview.md)  
+Related: [`../tasks/backlog-stories/ROADMAP.md`](../tasks/backlog-stories/ROADMAP.md) Phase 2 · implement [`../tasks/backlog-stories/capybara-identity-http-edge/INDEX.md`](../tasks/backlog-stories/capybara-identity-http-edge/INDEX.md) (EDGE-01…12) · parent contract [`04-dual-auth-wallet-supabase-user.md`](04-dual-auth-wallet-supabase-user.md) · host [`07-railway-family-host.md`](07-railway-family-host.md) · live Supabase [`09-live-supabase-auth-port.md`](09-live-supabase-auth-port.md) · wallet client [`10-wallet-address-proof-client.md`](10-wallet-address-proof-client.md) · roles [`03-family-roles-and-capability-matrix.md`](03-family-roles-and-capability-matrix.md) · catalog [`06-role-scoped-capability-catalog.md`](06-role-scoped-capability-catalog.md) · auth core [`../../packages/core/src/auth/`](../../packages/core/src/auth/) · host [`../../host/`](../../host/) · Connector adapter contract [`../../../doge-connector/docs/ops-platform-adapter-contract.md`](../../../doge-connector/docs/ops-platform-adapter-contract.md) (PAUTH-09) · integrator [`../../../doge-connector/docs/manuals/platform-integrator-guide.md`](../../../doge-connector/docs/manuals/platform-integrator-guide.md)  
+Architecture: [`../architecture/08-identity-http-edge-on-host/00-overview.md`](../architecture/08-identity-http-edge-on-host/00-overview.md) · siblings [`01`](../architecture/08-identity-http-edge-on-host/01-components-and-http-surface.md) · [`02`](../architecture/08-identity-http-edge-on-host/02-bootstrap-session-and-capability-probe.md) · [`03`](../architecture/08-identity-http-edge-on-host/03-env-verify-coexistence-residual.md) · [`04` Connector CORS + Origin domain](../architecture/08-identity-http-edge-on-host/04-connector-cors-and-challenge-origin.md) · prior [`../architecture/04-dual-auth-wallet-supabase-user/00-overview.md`](../architecture/04-dual-auth-wallet-supabase-user/00-overview.md) · [`../architecture/07-railway-family-host/00-overview.md`](../architecture/07-railway-family-host/00-overview.md)  
 Interview report: [`../analysis/zeya888.target-tech-arch-interview-08-identity-http-edge-on-host-2026-11-21.md`](../analysis/zeya888.target-tech-arch-interview-08-identity-http-edge-on-host-2026-11-21.md)  
-Interview: Phase 0 dual-auth locks 2026-11-19 · Phase 1 auth-live→Phase 2 2026-11-21 · Phase 2 REQ materialize `2026-11-21T13:43:45Z` · operator lock env/manual/POC `2026-11-21T14:34:00Z` · tech-arch auto UX/arch `2026-11-21T14:42:22Z`
+Interview: Phase 0 dual-auth locks 2026-11-19 · Phase 1 auth-live→Phase 2 2026-11-21 · Phase 2 REQ materialize `2026-11-21T13:43:45Z` · operator lock env/manual/POC `2026-11-21T14:34:00Z` · tech-arch auto UX/arch `2026-11-21T14:42:22Z` · Connector adapter Story-wave lock `2026-11-27` (EDGE-11/12 · Soft≠Live)
 
 Пометка: **live identity edge** на том же Railway host, что закрыл Phase 1. Переносит Phase 0 AUTH modules на HTTP: challenge / verify / session / logout / bootstrap + DualAuthGate перед family capabilities. Не создаёт Express CRUD product API. Naming future routes / manual / POC = acceptance targets; **name ≠ create** until implement / story wave.
 
@@ -23,8 +23,12 @@ Interview: Phase 0 dual-auth locks 2026-11-19 · Phase 1 auth-live→Phase 2 202
 | RoleGate / CatalogAlias | Present ([`../../packages/core/src/roleGate/`](../../packages/core/src/roleGate/)); not wired on host HTTP |
 | HTTP auth / capability routes | **Absent** |
 | Live Supabase Auth port | Residual throw — REQ-09 |
-| Wallet proof client | **Absent** — REQ-10 |
+| Wallet proof client | **Present / Accepted** — REQ-10 (`2026-11-24` live A+B) |
 | MembershipStore | In-memory Present; persistence = later / Unknown (not Phase 2 invent) |
+| `POST /auth/challenge` · `/auth/verify` (as-of EDGE Done) | **Present** — `host/authHttp.js` (Soft≠Live: historical §0 rows above may lag; paths Present) |
+| CORS for Connector Origin | **Absent** — gap vs PAUTH-09 contract §3 (EDGE-11) |
+| SIWE domain/URI = Connector signing origin | **Absent** (defaults `capybara.local` / `capybara://…` Present) — gap vs PAUTH-09 §4 (EDGE-12) |
+| Live Connector→Capybara verify Pass | **Not claimed** until EDGE-11/12 Done + evidence |
 
 ---
 
@@ -49,6 +53,9 @@ Interview: Phase 0 dual-auth locks 2026-11-19 · Phase 1 auth-live→Phase 2 202
 | Pool vs parent env | Bootstrap settings keep **separate** fields: pool address = `CAPY_POOL_ADDRESS`; founder parent address = existing `PARENT_ADDRESS`. Values **may be equal**; concepts must not be merged into one field (REQ-04 AC-A05/A06) |
 | Operator manual | Derivative stories for this REQ (and Phase 2 siblings as needed) **must** deliver an operator manual describing bootstrap + live verify steps |
 | Terminal POC | Story-delivered POC (detail in REQ-10) drives automated terminal flow that ends in MetaMask sign for `CAPY_POOL_ADDRESS` against this edge |
+| Connector CORS | Host must allow Connector signing Origin(s) on `/auth/challenge` and `/auth/verify` (matrix in PAUTH-09 contract §3). Detail AC in **EDGE-11** |
+| Connector challenge domain/URI | When request Origin is Connector signing origin, SIWE-class `domain`/`URI` must equal that origin; forbid `capybara.local` / `capybara://…` for Connector flow. Detail AC in **EDGE-12** |
+| AC ownership | Connector-adapter acceptance lives in STORY EDGE-11/12 (Scope/AC/Verified/OOS) — this REQ only locks the obligation class |
 
 ---
 
@@ -76,6 +83,8 @@ Interview: Phase 0 dual-auth locks 2026-11-19 · Phase 1 auth-live→Phase 2 202
 | AC-I05 | `GET /health` remains OK without auth and does not leak secrets |
 | AC-I06 | Unit/`npm test` green alone does **not** count as Phase 2 identity Done — live host proof required |
 | AC-I07 | After derivative stories Done: operator manual Present (how to bootstrap/verify on host); path TBD in stories — name ≠ create here |
+| AC-I08 | Connector CORS obligation closed by **EDGE-11** Done (Soft≠Live: story AC; Live Pass not invented here) |
+| AC-I09 | Connector Origin→SIWE domain/URI obligation closed by **EDGE-12** Done (Soft≠Live; Live Pass not invented here) |
 
 ---
 

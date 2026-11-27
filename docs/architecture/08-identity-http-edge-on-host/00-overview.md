@@ -10,11 +10,11 @@
 
 | Input | Role |
 |-------|------|
-| [`../../requirements/08-identity-http-edge-on-host.md`](../../requirements/08-identity-http-edge-on-host.md) | Functional REQ (AC-I01…I07; identity ops; pool/parent env; manual/POC pointers) |
+| [`../../requirements/08-identity-http-edge-on-host.md`](../../requirements/08-identity-http-edge-on-host.md) | Functional REQ (AC-I01…I09; identity ops; pool/parent env; Connector CORS/domain pointers EDGE-11/12) |
 | Story scope | **none** (0 STORY files in this run) |
 | Interview report | [`../../analysis/zeya888.target-tech-arch-interview-08-identity-http-edge-on-host-2026-11-21.md`](../../analysis/zeya888.target-tech-arch-interview-08-identity-http-edge-on-host-2026-11-21.md) |
 | Sibling arch | [`../07-railway-family-host/00-overview.md`](../07-railway-family-host/00-overview.md) · [`../04-dual-auth-wallet-supabase-user/00-overview.md`](../04-dual-auth-wallet-supabase-user/00-overview.md) · [`../06-role-scoped-capability-catalog/00-overview.md`](../06-role-scoped-capability-catalog/00-overview.md) |
-| Sibling REQ (OOS / consume) | [`09-live-supabase-auth-port.md`](../../requirements/09-live-supabase-auth-port.md) · [`10-wallet-address-proof-client.md`](../../requirements/10-wallet-address-proof-client.md) · [`04-…`](../../requirements/04-dual-auth-wallet-supabase-user.md) · [`07-…`](../../requirements/07-railway-family-host.md) |
+| Sibling REQ (OOS / consume) | [`09-live-supabase-auth-port.md`](../../requirements/09-live-supabase-auth-port.md) · arch [`../09-live-supabase-auth-port/00-overview.md`](../09-live-supabase-auth-port/00-overview.md) · [`10-wallet-address-proof-client.md`](../../requirements/10-wallet-address-proof-client.md) · [`04-…`](../../requirements/04-dual-auth-wallet-supabase-user.md) · [`07-…`](../../requirements/07-railway-family-host.md) |
 | As-is | [`../../../host/health.js`](../../../host/health.js) `/health` only · AUTH/ROLE Present under [`../../../packages/core/src/auth/`](../../../packages/core/src/auth/) · [`../../../packages/core/src/roleGate/`](../../../packages/core/src/roleGate/) |
 
 **Split:** REQ-08 stays product-facing (unauth deny, ACL live, bootstrap proofs, manual). This package is **how** the same `npm start` process exposes `/auth/*` + capability probe and wires DualAuthGate→RoleGate — not NEW STORY/pkg/code.
@@ -52,7 +52,7 @@ flowchart TD
 | Core AUTH/ROLE | Present modules; host wires, does not reimplement |
 | Membership | In-memory MVP; persist = Phase 3 residual |
 
-Siblings: [01-components-and-http-surface.md](./01-components-and-http-surface.md) · [02-bootstrap-session-and-capability-probe.md](./02-bootstrap-session-and-capability-probe.md) · [03-env-verify-coexistence-residual.md](./03-env-verify-coexistence-residual.md)
+Siblings: [01-components-and-http-surface.md](./01-components-and-http-surface.md) · [02-bootstrap-session-and-capability-probe.md](./02-bootstrap-session-and-capability-probe.md) · [03-env-verify-coexistence-residual.md](./03-env-verify-coexistence-residual.md) · [04-connector-cors-and-challenge-origin.md](./04-connector-cors-and-challenge-origin.md) (EDGE-11/12 Nested tech)
 
 ## Ownership / contracts (decided)
 
@@ -81,9 +81,10 @@ See [03-env-verify-coexistence-residual.md](./03-env-verify-coexistence-residual
 ## Coexistence with as-is
 
 - Host `/health` Present — do not break AC-H01.  
-- HTTP auth routes **Absent** until implement (REQ-08 §0).  
-- Live Supabase port residual → REQ-09.  
-- Wallet/terminal POC → REQ-10 (AC-W06/W07).  
+- HTTP auth `/auth/challenge|verify` **Present** (EDGE Done); Soft≠Live historical «Absent» rows in early REQ §0 may lag.  
+- Connector CORS + Origin→SIWE domain — Soft gap → [`04-…`](./04-connector-cors-and-challenge-origin.md) / EDGE-11/12.  
+- Live Supabase port → REQ-09 Accepted.  
+- Wallet Sign residual → REQ-10 / WPROOF-10 retire; Connector = target UX.  
 - Do not revive Express CRUD family API (ROADMAP superseded).
 
 ## Open questions
