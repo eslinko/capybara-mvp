@@ -24,4 +24,5 @@
 ## Soft residual
 
 - Soft unit: `tests/unit/mcp06-thin-skill-bearer-no-keys.test.js`
-- Live tool Pass / deep store packaging: **Absent** by design Soft≠Live
+- Live tool Pass: **Residual** Soft — [`../evidence/mcp-live-tool-pass-residual.md`](../evidence/mcp-live-tool-pass-residual.md) · checklist [`../MCP-LIVE-TOOL-PASS-OPERATOR-CHECKLIST.md`](../MCP-LIVE-TOOL-PASS-OPERATOR-CHECKLIST.md) · Soft≠Live
+- Deep store packaging: **Absent** by design Soft≠Live
